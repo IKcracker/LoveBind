@@ -1,3 +1,4 @@
+import { DevApiStatus } from '@/components/dev-api-status';
 import { useCallback, useRef, useState } from 'react';
 import { Redirect, router } from 'expo-router';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -130,6 +131,7 @@ export default function RegisterScreen() {
             onSubmitEditing={() => { void submit(); }}
           />
           <FormError message={apiError} />
+          <DevApiStatus />
           <FormButton text="Create account" busy={busy} onPress={() => { void submit(); }} />
           <Text style={authStyles.note}>LoveBind is in development. Accounts remain private while verification, safety tools and legal policies are being completed.</Text>
           <Pressable accessibilityRole="button" onPress={() => setStep(1)} style={styles.back}><Text style={styles.backText}>← Edit personal details</Text></Pressable>

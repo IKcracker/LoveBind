@@ -1,3 +1,4 @@
+import { DevApiStatus } from '@/components/dev-api-status';
 import { useCallback, useRef, useState } from 'react';
 import { Redirect, router } from 'expo-router';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
@@ -62,6 +63,7 @@ export default function LoginScreen() {
         onSubmitEditing={() => { void submit(); }}
       />
       <FormError message={apiError} />
+          <DevApiStatus />
       <FormButton text="Sign in" busy={busy} onPress={() => { void submit(); }} />
       <Text style={authStyles.note}>Password reset is not yet available in the development build. Your account remains private until verification is ready.</Text>
     </AuthLayout>

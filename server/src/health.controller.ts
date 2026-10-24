@@ -19,4 +19,22 @@ export class HealthController {
       throw new ServiceUnavailableException('Database unavailable');
     }
   }
+
+  @Get('ready')
+  async readiness(): Promise<{ status: string }> {
+    let tables: { users: string | null; credentials: string | null; sessions: string | null }[];
+    try {
+      tables = await this.prisma.$queryRaw<
+        { users: string | null; credentials: string | null; sessions: string | null }[]
+      >`SELECT to_regclass('public."User"')::text AS users,
+               to_regclass('public."EmailCredential"')::text AS credentials,
+               to_regclass('public."AuthSession"')::text AS sessions`;
+    } catch {
+      throw new ServiceUnavailableException('PostgreSQL is unavailable');
+    }
+    if (!tables[0]?.users || !tables[0]?.credentials || !tables[0]?.sessions) {
+      throw new ServiceUnavailableException('Development database schema not initialized');
+    }
+    return { status: 'ok' };
+  }
 }

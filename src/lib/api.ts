@@ -1,3 +1,5 @@
+import { apiConnectionHelp, resolveApiBaseUrl } from './api-url';
+
 export type ApiMethod = 'GET' | 'POST' | 'PUT';
 export class ApiError extends Error {
   constructor(message: string, readonly status?: number) {
@@ -6,14 +8,18 @@ export class ApiError extends Error {
   }
 }
 
+export function getApiAddress(): string {
+  return resolveApiBaseUrl().url;
+}
+
 export async function apiRequest<T>(
   path: string, method: ApiMethod = 'GET', body?: unknown, token?: string,
 ): Promise<T> {
-  const base = process.env.EXPO_PUBLIC_API_URL?.replace(/\/+$/, '');
-  if (!base) throw new ApiError('API address not configured. Set EXPO_PUBLIC_API_URL in .env.local.');
-  if (!/^https?:\/\//.test(base)) throw new ApiError('EXPO_PUBLIC_API_URL must be an absolute URL.');
-  if (!__DEV__ && !base.startsWith('https://')) {
-    throw new ApiError('A secure HTTPS API address is required.');
+  let base: string;
+  try {
+    base = getApiAddress();
+  } catch (error) {
+    throw new ApiError(error instanceof Error ? error.message : 'Invalid API configuration.');
   }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
@@ -35,14 +41,37 @@ export async function apiRequest<T>(
       const detail = typeof message === 'string' ? message
         : Array.isArray(message) ? message.filter((x): x is string => typeof x === 'string').join(', ')
         : 'Request failed. Try again.';
-      throw new ApiError(response.status >= 500 ? 'Service temporarily unavailable. Please try again.' : detail, response.status);
+      const friendly = response.status >= 500
+        ? 'The API is reachable, but its server encountered an error. Check the backend logs and database tables.'
+        : detail;
+      throw new ApiError(friendly, response.status);
     }
     return payload as T;
   } catch (error) {
     if (error instanceof ApiError) throw error;
-    if (controller.signal.aborted) throw new ApiError('Connection timed out. Check your network.');
-    throw new ApiError('Cannot reach LoveBind API. Check the server and network address.');
+    if (controller.signal.aborted) {
+      throw new ApiError('The API at ' + base + ' timed out. Check whether the backend is running and reachable from this device.');
+    }
+    throw new ApiError(apiConnectionHelp(error, base));
   } finally {
     clearTimeout(timeout);
   }
+}
+
+export async function checkApiHealth(): Promise<{ url: string; database: 'connected' }> {
+  const url = getApiAddress();
+  const api = await apiRequest<{ status: string }>('/health');
+  if (api.status !== 'ok') throw new ApiError('The API returned an unexpected health response.');
+  try {
+    const db = await apiRequest<{ status: string }>('/health/db');
+    if (db.status !== 'ok') throw new ApiError('The database health check failed.');
+    const ready = await apiRequest<{ status: string }>('/health/ready');
+    if (ready.status !== 'ok') throw new ApiError('Required database tables are unavailable.');
+  } catch (error) {
+    throw new ApiError(
+      'The API is reachable at ' + url + ', but PostgreSQL or the registration tables are not ready. Check the Neon connection in server/.env.local, then initialize the development schema.',
+      error instanceof ApiError ? error.status : undefined,
+    );
+  }
+  return { url, database: 'connected' };
 }

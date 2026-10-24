@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { ActivityIndicator, ImageBackground, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ActionButton, Brand, Heading, InfoCard, Page } from '@/components/lovebind-ui';
 import { BrandLockup, Love, serif } from '@/components/auth-screens';
@@ -9,11 +9,11 @@ import { useSession } from '@/lib/session';
 function WelcomeScreen() {
   return (
     <View style={styles.background}>
-      <ImageBackground
+      <Image
         source={require('../../assets/images/lovebind-hero.jpg')}
         resizeMode="cover"
-        style={StyleSheet.absoluteFillObject}
-        imageStyle={styles.photo}
+        style={[StyleSheet.absoluteFillObject, styles.photo]}
+        accessible={false}
         accessibilityIgnoresInvertColors
       />
       <View style={[StyleSheet.absoluteFillObject, styles.photoTint]} pointerEvents="none" />
