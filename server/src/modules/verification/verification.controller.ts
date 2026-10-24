@@ -19,6 +19,12 @@ export class VerificationController {
     return { provider: 'didit', status: record?.status ?? 'Not Started', record };
   }
 
+  // Authentication is required, but this response contains no credentials.
+  @Get('config')
+  config() {
+    return { provider: 'didit', available: Boolean(process.env.DIDIT_API_KEY?.trim() && process.env.DIDIT_WORKFLOW_ID?.trim()) };
+  }
+
   @Post('session')
   async start(@Req() request: AuthenticatedRequest, @Body() body: unknown) {
     const obj = body && typeof body === 'object' && !Array.isArray(body) ? body as Record<string, unknown> : {};
