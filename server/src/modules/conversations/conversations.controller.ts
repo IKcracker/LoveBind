@@ -62,10 +62,11 @@ export class ConversationsController {
       select: { id: true, senderId: true, content: true, createdAt: true } });
     const hasMore = rows.length > 30;
     const page = rows.slice(0, 30);
+    const nextCursor = hasMore ? page[page.length - 1].id : null;
     return { matchId, other: allowed.other,
       messages: page.reverse().map(m => ({ id: m.id, senderId: m.senderId,
         content: decryptMessage(m.content), createdAt: m.createdAt })),
-      nextCursor: hasMore ? page[page.length - 1].id : null };
+      nextCursor };
   }
 
   @Post(':matchId/messages')
