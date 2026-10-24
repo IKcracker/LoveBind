@@ -8,10 +8,14 @@ const base = 'http://127.0.0.1:' + port;
 const moderatorId = 'ciadmin' + randomUUID().replace(/-/g,'');
 const moderatorEmail = 'moderator+' + randomUUID() + '@example.invalid';
 const moderatorPassword = 'VeryLongModeratorPassword-2026!';
+const envAdminEmail = 'envadmin+' + randomUUID() + '@example.invalid';
+const envAdminPassword = 'StrongEnvAdminPassword-2026!';
 const child = spawn(process.execPath, ['dist/main.js'], {
   cwd: require('node:path').join(__dirname, '..'),
   env: { ...process.env, PORT: String(port), CORS_ORIGINS: 'http://localhost:8081',
     LOVEBIND_MODERATOR_IDS: moderatorId,
+    LOVEBIND_ADMIN_EMAIL: envAdminEmail,
+    LOVEBIND_ADMIN_PASSWORD: envAdminPassword,
     R2_ACCOUNT_ID: 'ci-account', R2_BUCKET: 'ci-private',
     R2_ACCESS_KEY_ID: 'ci-test-key', R2_SECRET_ACCESS_KEY: 'ci-fake-key-not-used' },
   stdio: ['ignore', 'pipe', 'pipe'],
@@ -51,6 +55,19 @@ async function smoke() {
   } finally { await seed.$disconnect(); }
 
   assert.equal((await call('/health/db')).status, 200, 'PostgreSQL connection');
+  const envAdminLogin = await call('/auth/login', 'POST', {email:envAdminEmail,password:envAdminPassword});
+  assert.equal(envAdminLogin.status,201,'environment admin account bootstrapped');
+  const envAdminToken=envAdminLogin.json.accessToken;
+  assert.equal((await call('/moderation/access','GET',undefined,envAdminToken)).json.canModerate,true,
+    'environment admin has moderator access');
+  assert.equal((await call('/moderation/admin/overview','GET',undefined,envAdminToken)).status,200,
+    'environment admin can load CRM');
+  const envAdminMe=await call('/auth/me','GET',undefined,envAdminToken);
+  assert.equal(envAdminMe.json.profile,null,'environment admin is not a dating profile');
+  assert.equal((await call('/moderation/admin/members?q='+encodeURIComponent(envAdminEmail),'GET',undefined,envAdminToken)).json.total,0,
+    'environment admin excluded from members directory');
+  assert.equal((await call('/auth/login','POST',{email:envAdminEmail,password:'wrong'})).status,401,
+    'invalid admin password denied');
   assert.equal((await call('/auth/me')).status, 401, 'private endpoint rejects guests');
   const email = 'ci+' + randomUUID() + '@example.invalid';
   const registration = {
