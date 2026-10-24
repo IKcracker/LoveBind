@@ -71,6 +71,7 @@ model User {
   sessions     AuthSession[]
   consents     ConsentRecord[]
   identityVerification IdentityVerification?
+  photoReviewsMade PhotoModerationReview[] @relation("PhotoReviewModerator")
 }
 
 model Profile {
@@ -88,6 +89,7 @@ model Profile {
   coreValues String[] @default([])
   photoObjectKey String?
   photoReviewStatus String @default("NONE")
+  photoReviews PhotoModerationReview[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -306,6 +308,8 @@ model IdentityVerification {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   lastCheckedAt DateTime?
+  ageVerifiedAt DateTime?
+  ageEvidenceStatus String @default("PENDING")
   @@index([status])
 }
 
@@ -326,4 +330,19 @@ model GeoCity {
 
   @@index([countryCode])
   @@index([population])
+}
+
+model PhotoModerationReview {
+  id String @id @default(cuid())
+  profileUserId String
+  profile Profile @relation(fields: [profileUserId], references: [userId], onDelete: Cascade)
+  moderatorId String
+  moderator User @relation("PhotoReviewModerator", fields: [moderatorId], references: [id])
+  photoObjectKey String
+  decision String @db.VarChar(20)
+  reason String? @db.VarChar(500)
+  reviewedAt DateTime @default(now())
+
+  @@index([profileUserId, reviewedAt])
+  @@index([moderatorId, reviewedAt])
 }

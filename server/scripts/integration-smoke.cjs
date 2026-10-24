@@ -49,6 +49,15 @@ async function smoke() {
   assert.equal(created.json.user.status, 'PENDING', 'unverified accounts remain pending');
   assert.ok(created.json.accessToken, 'opaque bearer token issued');
   const token = created.json.accessToken;
+  assert.equal((await call('/moderation/photos')).status, 401, 'moderation queue is authenticated');
+  assert.equal((await call('/moderation/access', 'GET', undefined, token)).status, 200);
+  assert.equal((await call('/moderation/photos', 'GET', undefined, token)).status, 403,
+    'ordinary users cannot review others');
+  assert.equal((await call('/moderation/photos/test-user/decision', 'POST',
+    {decision:'APPROVED'}, token)).status, 403,
+    'ordinary users cannot grant photo approval');
+  assert.equal((await call('/verification/me', 'GET', undefined, token)).status, 200,
+    'identity status is private and queryable');
   const me = await call('/auth/me', 'GET', undefined, token);
   assert.equal(me.status, 200, 'session works');
   assert.equal(me.json.profile.displayName, 'Taylor', 'registration creates profile');

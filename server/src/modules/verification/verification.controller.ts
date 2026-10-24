@@ -1,6 +1,7 @@
 import { BadGatewayException, BadRequestException, Controller, Get, Post, Req, Body, ServiceUnavailableException, UseGuards } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthGuard, AuthenticatedRequest } from '../auth/auth.guard';
+import { evaluateDiditAge, reconcileAccount } from '../moderation/activation';
 
 type SessionResponse = { session_id?: string; url?: string; session_url?: string };
 const BASE = 'https://verification.didit.me/v3';
@@ -14,7 +15,7 @@ export class VerificationController {
   async current(@Req() request: AuthenticatedRequest) {
     const record = await this.prisma.identityVerification.findUnique({
       where: { userId: request.authUserId },
-      select: { status: true, createdAt: true, lastCheckedAt: true },
+      select: { status: true, ageEvidenceStatus: true, createdAt: true, lastCheckedAt: true },
     });
     return { provider: 'didit', status: record?.status ?? 'Not Started', record };
   }
@@ -55,7 +56,8 @@ export class VerificationController {
     await this.prisma.identityVerification.upsert({
       where: { userId: request.authUserId },
       create: { userId: request.authUserId, providerSessionId: result.session_id, consentAt: new Date() },
-      update: { providerSessionId: result.session_id, status: 'Not Started', consentAt: new Date(), lastCheckedAt: null },
+      update: { providerSessionId: result.session_id, status: 'Not Started', consentAt: new Date(), lastCheckedAt: null,
+        ageVerifiedAt: null, ageEvidenceStatus: 'PENDING' },
     });
     return { url, status: 'Not Started' };
   }
@@ -70,12 +72,21 @@ export class VerificationController {
       headers: { 'x-api-key': apiKey }, signal: AbortSignal.timeout(15000),
     }).catch(() => { throw new BadGatewayException('Unable to reach verification provider'); });
     if (!response.ok) throw new BadGatewayException('Could not retrieve verification status');
-    const result = await response.json() as { status?: unknown };
+    const result = await response.json() as Record<string, unknown>;
     const known = ['Not Started', 'In Progress', 'In Review', 'Approved', 'Declined', 'Resubmitted', 'Awaiting User', 'Expired', 'Abandoned', 'Kyc Expired'];
     const status = typeof result.status === 'string' && known.includes(result.status) ? result.status : 'In Review';
-    await this.prisma.identityVerification.update({ where: { userId: request.authUserId }, data: { status, lastCheckedAt: new Date() } });
-    // Important: provider approval alone does not make a profile discoverable.
-    // Age proof and safety review must be implemented before changing User.status.
-    return { status };
+    const profile = await this.prisma.profile.findUniqueOrThrow({
+      where: { userId: request.authUserId }, select: { birthDate: true },
+    });
+    const ageEvidenceStatus = status === 'Approved'
+      ? evaluateDiditAge(result, profile.birthDate)
+      : 'PENDING';
+    const ageVerifiedAt = ageEvidenceStatus === 'VERIFIED' ? new Date() : null;
+    const activated = await this.prisma.$transaction(async tx => {
+      await tx.identityVerification.update({ where: { userId: request.authUserId },
+        data: { status, lastCheckedAt: new Date(), ageEvidenceStatus, ageVerifiedAt } });
+      return reconcileAccount(tx, request.authUserId);
+    });
+    return { status, ageEvidenceStatus, accountActive: activated };
   }
 }

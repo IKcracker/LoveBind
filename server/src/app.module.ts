@@ -7,9 +7,10 @@ import { PreferencesModule } from './modules/preferences/preferences.module';
 import { VerificationModule } from './modules/verification/verification.module';
 import { PhotosModule } from './modules/photos/photos.module';
 import { LocationsModule } from './modules/locations/locations.module';
+import { ModerationModule } from './modules/moderation/moderation.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, ProfilesModule, PreferencesModule, VerificationModule, PhotosModule, LocationsModule],
+  imports: [PrismaModule, AuthModule, ProfilesModule, PreferencesModule, VerificationModule, PhotosModule, LocationsModule, ModerationModule],
   controllers: [HealthController],
 })
 export class AppModule {}

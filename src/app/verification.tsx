@@ -6,7 +6,7 @@ import { BrandLockup, FormButton, FormError, Love, serif } from '@/components/au
 import { ApiError, apiRequest } from '@/lib/api';
 import { useSession } from '@/lib/session';
 
-type VerificationState = { status: string };
+type VerificationState = { status: string; ageEvidenceStatus?: string; accountActive?: boolean; record?: {ageEvidenceStatus?: string} };
 
 function friendlyError(error: unknown): string {
   if (error instanceof ApiError) {
@@ -20,9 +20,10 @@ function friendlyError(error: unknown): string {
 }
 
 export default function Verification() {
-  const { loading, user, token, signOut } = useSession();
+  const { loading, user, token, signOut, refresh } = useSession();
   const [consent, setConsent] = useState(false);
   const [status, setStatus] = useState('Not Started');
+  const [ageStatus, setAgeStatus] = useState('PENDING');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,7 +31,7 @@ export default function Verification() {
     if (!token) return;
     let active = true;
     apiRequest<VerificationState>('/verification/me', 'GET', undefined, token)
-      .then(result => { if (active) setStatus(result.status); })
+      .then(result => { if (active) { setStatus(result.status); setAgeStatus(result.record?.ageEvidenceStatus ?? 'PENDING'); } })
       .catch(() => undefined);
     return () => { active = false; };
   }, [token]);
@@ -43,6 +44,7 @@ export default function Verification() {
       if (!result.url.startsWith('https://')) throw new Error('Invalid verification link');
       await Linking.openURL(result.url);
       setStatus(result.status);
+      setAgeStatus('PENDING');
     } catch (e) { setError(friendlyError(e)); }
     finally { setBusy(false); }
   }
@@ -53,6 +55,8 @@ export default function Verification() {
     try {
       const result = await apiRequest<VerificationState>('/verification/refresh', 'POST', {}, token);
       setStatus(result.status);
+      setAgeStatus(result.ageEvidenceStatus ?? 'PENDING');
+      await refresh();
     } catch (e) { setError(friendlyError(e)); }
     finally { setBusy(false); }
   }
@@ -66,17 +70,21 @@ export default function Verification() {
     <BrandLockup/>
     <View style={s.progress}><View style={s.active}/><View style={s.active}/><View style={s.active}/></View>
     <Text style={s.overline}>03 / 03 · TRUST & SAFETY</Text>
-    <Text style={s.head}>The real you, safely.</Text>
+    <Text style={s.head}>{status === 'Approved' ? 'Identity confirmed.' : 'The real you, safely.'}</Text>
     <Text style={s.description}>Verify your identity with our partner Didit. Your ID document and selfie are submitted directly to the verification provider, not to LoveBind.</Text>
     <View style={s.card}>
       <Text style={s.cardTitle}>Identity verification</Text>
       <Text style={s.cardText}>Didit will guide you through an ID document check and a selfie/liveness check. Return here afterward to check your status.</Text>
       <Text style={s.status}>Status: {status}</Text>
-      <Pressable onPress={() => setConsent(!consent)} accessibilityRole="checkbox" accessibilityState={{checked:consent}} style={s.consentRow}>
+      {status === 'Approved' ? <Text style={s.success}>Identity check approved by Didit.</Text> : null}
+      {status === 'Approved' && ageStatus !== 'VERIFIED' ? <Text style={s.info}>Your age evidence still needs confirmation before account activation. Use Check verification status to synchronize your ID details.</Text> : null}
+      {status === 'Approved' && ageStatus === 'VERIFIED' ? <Text style={s.success}>Adult age confirmed from your identity document.</Text> : null}
+      {status !== 'Approved' ? <Pressable onPress={() => setConsent(!consent)} accessibilityRole="checkbox" accessibilityState={{checked:consent}} style={s.consentRow}>
         <View style={[s.checkbox, consent && s.checked]}><Text style={s.tick}>{consent ? '✓' : ''}</Text></View>
         <Text style={s.consentText}>I consent to Didit processing my identity document and selfie for verification. I can stop before submitting.</Text>
-      </Pressable>
-      <FormButton text="Start secure verification" disabled={!consent} busy={busy} onPress={() => { void start(); }} />
+      </Pressable> : null}
+      {status === 'Not Started' || status === 'Declined' || status === 'Expired' || status === 'Abandoned' ?
+        <FormButton text="Start secure verification" disabled={!consent} busy={busy} onPress={() => { void start(); }} /> : null}
       <FormButton text="Check verification status" secondary busy={busy} onPress={() => { void check(); }} />
     </View>
     <View style={s.card}>
@@ -104,6 +112,8 @@ const s=StyleSheet.create({
   cardTitle:{color:Love.ink,fontSize:18,fontWeight:'700'},
   cardText:{color:Love.muted,fontSize:14,lineHeight:21},
   status:{color:Love.wine,fontWeight:'700',fontSize:13},
+  success:{backgroundColor:'#E7F2EA',color:'#256544',fontSize:13,lineHeight:21,padding:12,borderRadius:9},
+  info:{backgroundColor:'#FAF0E7',color:Love.wine,fontSize:13,lineHeight:21,padding:12,borderRadius:9},
   consentRow:{flexDirection:'row',gap:12,alignItems:'center'},
   checkbox:{width:22,height:22,borderWidth:1,borderColor:Love.wine,borderRadius:4,justifyContent:'center',alignItems:'center'},
   checked:{backgroundColor:Love.wine},

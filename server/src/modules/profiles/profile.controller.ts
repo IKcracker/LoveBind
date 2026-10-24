@@ -3,6 +3,7 @@ import { BadRequestException, Body, Controller, Get, Put, Req, UseGuards } from 
 import { AuthGuard, AuthenticatedRequest } from '../auth/auth.guard';
 import { parseProfile } from '../auth/auth.validation';
 import { PrismaService } from '../../prisma/prisma.service';
+import { reconcileAccount } from '../moderation/activation';
 
 @Controller('profiles')
 @UseGuards(AuthGuard)
@@ -28,10 +29,14 @@ export class ProfileController {
     } else if (fields.city !== undefined && fields.city !== current.city) {
       throw new BadRequestException('Select your city from the suggestions');
     }
-    return this.prisma.profile.update({
+    return this.prisma.$transaction(async tx => {
+      const profile = await tx.profile.update({
       where: { userId: request.authUserId },
       data: fields,
       select: { displayName: true, city: true, cityPlaceId: true, bio: true, relationshipGoal: true, occupation: true, interests: true, coreValues: true, photoReviewStatus: true, isVisible: true },
+      });
+      await reconcileAccount(tx, request.authUserId);
+      return profile;
     });
   }
 }
