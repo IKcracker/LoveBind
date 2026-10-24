@@ -1,89 +1,71 @@
-import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { apiRequest } from '@/lib/api';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BrandLockup, Love, serif } from '@/components/auth-screens';
+import { MemberTabBar } from '@/components/member-tab-bar';
 import { useSession } from '@/lib/session';
 
-function Shortcut({ title, description, arrow = true, onPress }: {
-  title: string; description: string; arrow?: boolean; onPress: () => void;
-}) {
-  return <Pressable style={({ pressed })=>[s.link,pressed&&s.pressed]} onPress={onPress} accessibilityRole="button">
-    <View style={s.linkContent}><Text style={s.linkTitle}>{title}</Text><Text style={s.linkDescription}>{description}</Text></View>
-    {arrow ? <Text style={s.arrow}>→</Text> : null}
-  </Pressable>;
-}
 export function MemberHome() {
-  const { user, token, signOut } = useSession();
-  const [moderator, setModerator] = useState(false);
-  useEffect(() => {
-    if (!token) return;
-    let active = true;
-    apiRequest<{canModerate: boolean}>('/moderation/access', 'GET', undefined, token)
-      .then(result => { if(active) setModerator(result.canModerate); })
-      .catch(() => undefined);
-    return () => { active = false; };
-  }, [token]);
+  const { user } = useSession();
   if (!user) return null;
-  const name = user.profile?.displayName ?? 'there';
   const profile = user.profile;
-  const details = !!(profile?.city && profile?.bio && profile?.relationshipGoal);
-  const hasPhoto = profile?.photoReviewStatus === 'PENDING' || profile?.photoReviewStatus === 'APPROVED';
-  const verified = user.identityVerification?.status === 'Approved' && user.identityVerification?.ageEvidenceStatus === 'VERIFIED';
+  const name = profile?.displayName?.split(' ')[0] || 'there';
+  const profileReady = !!(profile?.city && profile?.bio && profile?.relationshipGoal);
+  const photoReady = profile?.photoReviewStatus === 'APPROVED';
+  const ageReady = user.identityVerification?.status === 'Approved' &&
+    user.identityVerification.ageEvidenceStatus === 'VERIFIED';
   const active = user.status === 'ACTIVE';
-  const steps = Number(details) + Number(hasPhoto) + Number(verified);
-  return <SafeAreaView style={s.safe}>
-    <ScrollView contentContainerStyle={s.container}>
-      <View style={s.header}><BrandLockup/><Text style={s.headTag}>YOUR SPACE</Text></View>
-      <Text style={s.welcome}>Good to see you,</Text>
-      <Text style={s.name}>{name}<Text style={s.dot}>.</Text></Text>
-      <Text style={s.caption}>The best stories are the ones you get to write together.</Text>
-      {active ? <View style={s.panel}><Text style={s.kicker}>WELCOME TO LOVEBIND</Text><Text style={s.panelTitle}>Your next chapter starts here.</Text><Text style={s.panelDesc}>Your account is approved. Set your preferences, join discovery when you're ready, and meet people who share what matters to you.</Text></View> : null}
-      {!active && <View style={s.panel}>
-        <Text style={s.kicker}>GETTING STARTED</Text>
-        <Text style={s.panelTitle}>Your story is taking shape.</Text>
-        <Text style={s.panelDesc}>Finish setting up your account before you start meeting people.</Text>
-        <View style={s.track}><View style={[s.fill,{width: (steps / 3 * 100) + '%'}]}/></View>
-        <Text style={s.progressText}>{steps} of 3 setup steps completed · Final review required before discovery</Text>
-      </View>}
-      {moderator ? <Shortcut title="Photo moderation" description="Review pending profile photos" onPress={()=>router.push('/moderation')} /> : null}
-      <Text style={s.section}>{active?'Explore LoveBind':'Continue your journey'}</Text>
-      {active?<Shortcut title="My connections" description="See people who liked you back" onPress={()=>router.push('/connections')}/>:null}
-      {active?<Shortcut title="Discover people ♡" description="Find verified members who fit your mutual preferences" onPress={()=>router.push('/discover')}/>:null}
-      <Shortcut title="Partner preferences" description="Set the age range, cities and intentions that matter to you" onPress={()=>router.push('/preferences')}/>
-      <Shortcut title="Your story" description={details ? 'Review your profile and interests' : 'Tell people what makes you, you'} onPress={()=>router.push('/onboarding')}/>
-      <Shortcut title="Profile photo" description={hasPhoto ? 'Photo submitted for private review' : 'Add a genuine photo of yourself'} onPress={()=>router.push('/profile-photo')}/>
-      <Shortcut title="Verify your identity" description="Continue secure age and identity checks" onPress={()=>router.push('/verification')}/>
-      <View style={s.callout}>
-        <Text style={s.calloutTitle}>A safer place to connect</Text>
-        <Text style={s.calloutText}>Your profile stays private until you choose to join discovery. Likes are private until both people show interest. Chat and compatibility quizzes are next.</Text>
-      </View>
-      <Pressable style={s.signout} onPress={()=>{void signOut()}}><Text style={s.signoutText}>Sign out</Text></Pressable>
-    </ScrollView>
+  const steps = Number(profileReady) + Number(photoReady) + Number(ageReady);
+
+  return <SafeAreaView style={styles.safe} edges={['top','left','right']}>
+    <View style={styles.body}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.header}><BrandLockup/><Text style={styles.headerTag}>YOUR SPACE</Text></View>
+        <Text style={styles.intro}>Good to see you,</Text>
+        <Text style={styles.name}>{name}<Text style={styles.dot}>.</Text></Text>
+        <Text style={styles.subtitle}>Real connections begin with being yourself.</Text>
+        <View style={styles.hero}>
+          <Text style={styles.heroEyebrow}>{active?'YOUR LOVEBIND JOURNEY':'YOUR ACCOUNT STATUS'}</Text>
+          <Text style={styles.heroTitle}>{active?'Your next chapter starts here.':'Your story is taking shape.'}</Text>
+          <Text style={styles.heroText}>{active
+            ?'Your profile is approved. Discover people at your own pace, and keep the conversation meaningful.'
+            :'Your profile stays private while identity, photo and account reviews are completed.'}</Text>
+          {!active?<View style={styles.progress}><View style={[styles.progressFill,{width:(steps/3*100)+'%'}]}/></View>:null}
+          {!active?<Text style={styles.progressLabel}>{steps} of 3 checks completed. Final account review may still be required.</Text>:null}
+        </View>
+        <Text style={styles.section}>Your journey at a glance</Text>
+        <View style={styles.metricRow}>
+          <View style={styles.metric}><Text style={styles.metricValue}>{active?'Active':'Pending'}</Text><Text style={styles.metricLabel}>Account</Text></View>
+          <View style={styles.metric}><Text style={styles.metricValue}>{ageReady?'Verified':'Awaiting'}</Text><Text style={styles.metricLabel}>Identity & age</Text></View>
+        </View>
+        <View style={styles.info}><Text style={styles.infoTitle}>A safer place to connect ♡</Text>
+          <Text style={styles.infoText}>Your profile is private until you choose to join discovery. Interest stays private until both members like each other.</Text>
+        </View>
+      </ScrollView>
+      <MemberTabBar active="home" approved={active}/>
+    </View>
   </SafeAreaView>;
 }
-const s=StyleSheet.create({
-  safe:{flex:1,backgroundColor:Love.paper},container:{paddingHorizontal:26,paddingBottom:45,maxWidth:510,width:'100%',alignSelf:'center'},
-  header:{paddingTop:24,flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:55},
-  headTag:{letterSpacing:1.4,fontSize:10,fontWeight:'700',color:Love.wine},
-  welcome:{fontFamily:serif,fontSize:31,color:Love.ink,lineHeight:38},
-  name:{fontFamily:serif,fontSize:48,lineHeight:53,color:Love.ink},dot:{color:Love.blush},
-  caption:{fontSize:15,color:Love.muted,lineHeight:24,marginTop:14,marginBottom:34},
-  panel:{backgroundColor:Love.wine,borderRadius:14,padding:23,gap:13,marginBottom:35},
-  kicker:{fontSize:10,fontWeight:'700',letterSpacing:2,color:'#EFDDE5'},
-  panelTitle:{fontFamily:serif,fontSize:29,color:Love.white,lineHeight:34},
-  panelDesc:{color:'#F0E3E8',fontSize:13,lineHeight:21},
-  track:{height:5,borderRadius:4,backgroundColor:'rgba(255,255,255,0.22)',overflow:'hidden',marginTop:10},
-  fill:{height:5,borderRadius:4,backgroundColor:'#F5D7D9'},
-  progressText:{fontSize:11,color:'#F4E5EB'},
-  section:{fontFamily:serif,color:Love.ink,fontSize:25,marginBottom:10},
-  link:{borderBottomWidth:1,borderColor:Love.line,flexDirection:'row',paddingVertical:21,alignItems:'center',gap:10},
-  linkContent:{flex:1,gap:5},linkTitle:{fontSize:17,fontWeight:'700',color:Love.ink},
-  linkDescription:{fontSize:13,color:Love.muted,lineHeight:19},
-  arrow:{fontSize:23,color:Love.wine},pressed:{opacity:0.65},
-  callout:{borderRadius:12,backgroundColor:'#EEE6E1',padding:21,marginTop:34,gap:8},
-  calloutTitle:{fontSize:17,color:Love.ink,fontWeight:'700'},
-  calloutText:{fontSize:13,color:Love.muted,lineHeight:22},
-  signout:{alignItems:'center',paddingVertical:25},signoutText:{fontSize:13,color:Love.muted,textDecorationLine:'underline'}
+const styles=StyleSheet.create({
+  safe:{flex:1,backgroundColor:Love.paper},body:{flex:1},
+  content:{maxWidth:530,width:'100%',alignSelf:'center',paddingHorizontal:24,paddingTop:24,paddingBottom:36,gap:15},
+  header:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:25},
+  headerTag:{fontSize:10,fontWeight:'700',letterSpacing:1.5,color:Love.wine},
+  intro:{fontFamily:serif,fontSize:29,lineHeight:35,color:Love.ink},
+  name:{fontFamily:serif,fontSize:45,lineHeight:50,color:Love.ink},
+  dot:{color:Love.blush},subtitle:{fontSize:14,lineHeight:22,color:Love.muted,marginBottom:14},
+  hero:{borderRadius:20,backgroundColor:Love.wine,padding:24,gap:15},
+  heroEyebrow:{color:'#F7E8EE',fontSize:10,fontWeight:'800',letterSpacing:2},
+  heroTitle:{fontFamily:serif,color:Love.white,fontSize:31,lineHeight:37},
+  heroText:{color:'#F4E6EC',fontSize:14,lineHeight:22},
+  progress:{height:6,borderRadius:6,backgroundColor:'rgba(255,255,255,0.22)',overflow:'hidden',marginTop:8},
+  progressFill:{height:6,backgroundColor:'#F7DCE4'},
+  progressLabel:{color:'#F4E6EC',fontSize:12,lineHeight:18},
+  section:{fontFamily:serif,fontSize:25,color:Love.ink,marginTop:18},
+  metricRow:{flexDirection:'row',gap:12},
+  metric:{backgroundColor:Love.white,borderWidth:1,borderColor:Love.line,borderRadius:15,padding:18,flex:1,gap:7},
+  metricValue:{fontSize:18,fontWeight:'700',color:Love.wine},
+  metricLabel:{fontSize:12,color:Love.muted},
+  info:{backgroundColor:'#EEE6E1',borderRadius:15,padding:21,gap:9,marginTop:12},
+  infoTitle:{fontSize:17,fontWeight:'700',color:Love.ink},
+  infoText:{fontSize:13,lineHeight:21,color:Love.muted},
 });
