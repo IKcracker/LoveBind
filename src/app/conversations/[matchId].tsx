@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ScrollViewInstance } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Love, serif } from '@/components/auth-screens';
 import { apiRequest } from '@/lib/api';
@@ -18,7 +18,7 @@ export default function ConversationScreen(){
  const [error,setError]=useState<string|null>(null);
  const [options,setOptions]=useState(false);
  const [confirmBlock,setConfirmBlock]=useState(false);
- const scroll=useRef<ScrollView>(null);
+ const scroll=useRef<ScrollViewInstance | null>(null);
  async function load(){
   if(!token||typeof matchId!=='string')return;
   setError(null);
