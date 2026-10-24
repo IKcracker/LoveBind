@@ -39,7 +39,9 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
       - name: Install locked dependencies
-        run: npm ci --no-audit --no-fund
+        run: npm install --no-audit --no-fund
+      - name: Check TypeScript before Expo dependency analysis
+        run: npm run typecheck
       - name: Check Expo SDK dependency versions
         run: npx expo install --check
       - name: Lint
@@ -50,6 +52,8 @@ jobs:
         run: npx expo export --platform android --output-dir dist-ci/android
       - name: Bundle iOS JS
         run: npx expo export --platform ios --output-dir dist-ci/ios
+      - name: Require a committed up-to-date mobile lockfile
+        run: git diff --exit-code -- package-lock.json
 
   api:
     name: api-quality
@@ -66,10 +70,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
-          cache-dependency-path: server/package-lock.json
+          package-manager-cache: false
       - name: Install locked API dependencies
-        run: npm ci --no-audit --no-fund
+        run: npm install --no-audit --no-fund
       - name: Validate database schema
         run: npm run prisma:validate
       - name: Generate Prisma client
@@ -80,6 +83,10 @@ jobs:
         run: npm test
       - name: Build API
         run: npm run build
+      - name: Require committed API lockfile
+        run: |
+          git ls-files --error-unmatch package-lock.json
+          git diff --exit-code -- package-lock.json
 
   postgres-integration:
     name: postgres-integration
@@ -111,10 +118,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
-          cache-dependency-path: server/package-lock.json
+          package-manager-cache: false
       - name: Install locked API dependencies
-        run: npm ci --no-audit --no-fund
+        run: npm install --no-audit --no-fund
       - name: Validate Prisma and prepare isolated database
         run: |
           npx prisma validate
@@ -124,6 +130,10 @@ jobs:
         run: npm run build
       - name: Exercise real API and PostgreSQL
         run: node scripts/integration-smoke.cjs
+      - name: Require committed API lockfile
+        run: |
+          git ls-files --error-unmatch package-lock.json
+          git diff --exit-code -- package-lock.json
 
   dependency-audit:
     name: dependency-audit
@@ -134,10 +144,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            server/package-lock.json
+          package-manager-cache: false
       - name: Audit mobile production dependencies
         run: npm audit --omit=dev --audit-level=high
       - name: Audit API production dependencies
