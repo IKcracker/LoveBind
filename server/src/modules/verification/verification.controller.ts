@@ -1,7 +1,7 @@
 import { BadGatewayException, BadRequestException, Controller, Get, Post, Req, Body, ServiceUnavailableException, UseGuards } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthGuard, AuthenticatedRequest } from '../auth/auth.guard';
-import { evaluateDiditAge, reconcileAccount } from '../moderation/activation';
+import { evaluateDiditAgeEvidence, reconcileAccount } from '../moderation/activation';
 
 type SessionResponse = { session_id?: string; url?: string; session_url?: string };
 const BASE = 'https://verification.didit.me/v3';
@@ -78,9 +78,10 @@ export class VerificationController {
     const profile = await this.prisma.profile.findUniqueOrThrow({
       where: { userId: request.authUserId }, select: { birthDate: true },
     });
-    const ageEvidenceStatus = status === 'Approved'
-      ? evaluateDiditAge(result, profile.birthDate)
-      : 'PENDING';
+    const evaluation = status === 'Approved'
+      ? evaluateDiditAgeEvidence(result, profile.birthDate)
+      : { status: 'PENDING' as const, issue: null };
+    const ageEvidenceStatus = evaluation.status;
     const ageVerifiedAt = ageEvidenceStatus === 'VERIFIED' ? new Date() : null;
     const activated = await this.prisma.$transaction(async tx => {
       if (ageEvidenceStatus !== 'VERIFIED' || status !== 'Approved') {
@@ -90,6 +91,7 @@ export class VerificationController {
         data: { status, lastCheckedAt: new Date(), ageEvidenceStatus, ageVerifiedAt } });
       return reconcileAccount(tx, request.authUserId);
     });
-    return { status, ageEvidenceStatus, accountActive: activated };
+    // A diagnostic code identifies the failed check without disclosing DOB or ID data.
+    return { status, ageEvidenceStatus, ageEvidenceIssue: evaluation.issue, accountActive: activated };
   }
 }

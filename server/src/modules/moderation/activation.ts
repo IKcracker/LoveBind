@@ -53,27 +53,81 @@ function obj(input: unknown): Obj | null {
 function cleanDate(input: unknown): string | null {
   if (typeof input !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(input)) return null;
   const dt = new Date(input + 'T00:00:00Z');
-  return Number.isNaN(dt.getTime()) || dt.toISOString().slice(0,10) !== input ? null : input;
+  return Number.isNaN(dt.getTime()) || dt.toISOString().slice(0, 10) !== input ? null : input;
 }
 export type AgeDecision = 'VERIFIED' | 'MISSING' | 'UNDERAGE' | 'DOB_MISMATCH' | 'CHECKS_INCOMPLETE';
+export type AgeEvidenceIssue =
+  | 'SESSION_NOT_APPROVED' | 'ID_CHECK_MISSING' | 'ID_CHECK_NOT_APPROVED'
+  | 'MULTIPLE_ID_CHECKS' | 'LIVENESS_MISSING' | 'LIVENESS_NOT_APPROVED'
+  | 'FACE_MATCH_MISSING' | 'FACE_MATCH_NOT_APPROVED' | 'DOCUMENT_DOB_MISSING'
+  | 'DOCUMENT_UNDERAGE' | 'DOCUMENT_DOB_MISMATCH';
+export type DiditAgeEvaluation = { status: AgeDecision; issue: AgeEvidenceIssue | null };
+
+function isApproved(value: unknown): boolean {
+  return typeof value === 'string' && value.trim().toLowerCase() === 'approved';
+}
+function hasEvidenceKeys(record: Obj): boolean {
+  return ['id_verifications', 'liveness_checks', 'face_matches', 'id_verification', 'liveness', 'face_match']
+    .some(key => Object.prototype.hasOwnProperty.call(record, key));
+}
+function checks(result: Obj, plural: string, singular: string): Obj[] {
+  // V3 returns arrays, but some Didit product documentation shows singular objects.
+  // An explicitly empty array is not silently replaced by a different field.
+  const items = result[plural];
+  if (Array.isArray(items)) return items.map(obj).filter((x): x is Obj => x !== null);
+  const single = obj(result[singular]);
+  return single ? [single] : [];
+}
+function positive(check: Obj): boolean {
+  // A score alone does NOT prove approval. Reject explicitly negative indicators.
+  return isApproved(check.status) && check.passed !== false && check.is_document_valid !== false;
+}
+
+export function evaluateDiditAgeEvidence(payload: unknown, registeredBirthDate: Date,
+  now = new Date()): DiditAgeEvaluation {
+  const fail = (status: AgeDecision, issue: AgeEvidenceIssue): DiditAgeEvaluation => ({ status, issue });
+  const root = obj(payload);
+  if (!root || !isApproved(root.status)) return fail('CHECKS_INCOMPLETE', 'SESSION_NOT_APPROVED');
+
+  // GET /v3/session/{id}/decision/ generally returns V3 arrays at the root.
+  // Webhooks may wrap them in `decision`, while other SDKs use `decision_v3`.
+  // We require a self-contained evidence object; never combine checks from
+  // different objects to manufacture a passing result.
+  const result = [obj(root.decision), obj(root.decision_v3), root]
+    .find((candidate): candidate is Obj => candidate !== null && hasEvidenceKeys(candidate));
+  if (!result) return fail('CHECKS_INCOMPLETE', 'ID_CHECK_MISSING');
+
+  const ids = checks(result, 'id_verifications', 'id_verification');
+  const liveness = checks(result, 'liveness_checks', 'liveness');
+  const faces = checks(result, 'face_matches', 'face_match');
+
+  if (!ids.length) return fail('CHECKS_INCOMPLETE', 'ID_CHECK_MISSING');
+  // A workflow with multiple conflicting ID checks needs a verified, explicit
+  // node mapping. Never pick an arbitrary document for the age decision.
+  if (ids.length !== 1) return fail('CHECKS_INCOMPLETE', 'MULTIPLE_ID_CHECKS');
+  if (!positive(ids[0])) return fail('CHECKS_INCOMPLETE', 'ID_CHECK_NOT_APPROVED');
+  if (!liveness.length) return fail('CHECKS_INCOMPLETE', 'LIVENESS_MISSING');
+  if (!liveness.some(positive) || liveness.some(x => x.status !== undefined && !positive(x)))
+    return fail('CHECKS_INCOMPLETE', 'LIVENESS_NOT_APPROVED');
+  if (!faces.length) return fail('CHECKS_INCOMPLETE', 'FACE_MATCH_MISSING');
+  // Didit V3 can return `match: true` instead of `status: "Approved"`.
+  // Explicit negative results always override a positive match indicator.
+  const facePassed = (x: Obj) =>
+    x.match !== false && x.matched !== false &&
+    (x.status === undefined ? x.match === true : isApproved(x.status));
+  if (!faces.some(facePassed) || faces.some(x => !facePassed(x)))
+    return fail('CHECKS_INCOMPLETE', 'FACE_MATCH_NOT_APPROVED');
+
+  const dob = cleanDate(ids[0].date_of_birth);
+  if (!dob) return fail('MISSING', 'DOCUMENT_DOB_MISSING');
+  if (age(new Date(dob + 'T00:00:00Z'), now) < 18) return fail('UNDERAGE', 'DOCUMENT_UNDERAGE');
+  if (!Number.isFinite(registeredBirthDate.getTime()) ||
+      registeredBirthDate.toISOString().slice(0, 10) !== dob)
+    return fail('DOB_MISMATCH', 'DOCUMENT_DOB_MISMATCH');
+  return { status: 'VERIFIED', issue: null };
+}
 
 export function evaluateDiditAge(payload: unknown, registeredBirthDate: Date,
   now = new Date()): AgeDecision {
-  const root = obj(payload);
-  if (!root || root.status !== 'Approved') return 'CHECKS_INCOMPLETE';
-  const result = obj(root.decision) ?? root;
-  const ids = Array.isArray(result.id_verifications) ? result.id_verifications : [];
-  const liveness = Array.isArray(result.liveness_checks) ? result.liveness_checks : [];
-  const faces = Array.isArray(result.face_matches) ? result.face_matches : [];
-  // All three workflow checks must show their own positive result.
-  if (!ids.length || !liveness.some(x => obj(x)?.status === 'Approved') ||
-      !faces.some(x => obj(x)?.status === 'Approved')) return 'CHECKS_INCOMPLETE';
-  const verifiedIds = ids.map(obj).filter((x): x is Obj => x !== null && x.status === 'Approved');
-  if (verifiedIds.length !== 1) return 'CHECKS_INCOMPLETE';
-  const dob = cleanDate(verifiedIds[0].date_of_birth);
-  if (!dob) return 'MISSING';
-  const date = new Date(dob + 'T00:00:00Z');
-  if (age(date, now) < 18) return 'UNDERAGE';
-  if (registeredBirthDate.toISOString().slice(0,10) !== dob) return 'DOB_MISMATCH';
-  return 'VERIFIED';
+  return evaluateDiditAgeEvidence(payload, registeredBirthDate, now).status;
 }
