@@ -1,4 +1,6 @@
 import { router } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { apiRequest } from '@/lib/api';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BrandLockup, Love, serif } from '@/components/auth-screens';
@@ -13,7 +15,16 @@ function Shortcut({ title, description, arrow = true, onPress }: {
   </Pressable>;
 }
 export function MemberHome() {
-  const { user, signOut } = useSession();
+  const { user, token, signOut } = useSession();
+  const [moderator, setModerator] = useState(false);
+  useEffect(() => {
+    if (!token) return;
+    let active = true;
+    apiRequest<{canModerate: boolean}>('/moderation/access', 'GET', undefined, token)
+      .then(result => { if(active) setModerator(result.canModerate); })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [token]);
   if (!user) return null;
   const name = user.profile?.displayName ?? 'there';
   const profile = user.profile;
@@ -33,6 +44,7 @@ export function MemberHome() {
         <View style={s.track}><View style={[s.fill,{width: (steps / 3 * 100) + '%'}]}/></View>
         <Text style={s.progressText}>{steps} of 3 setup steps completed</Text>
       </View>
+      {moderator ? <Shortcut title="Photo moderation" description="Review pending profile photos" onPress={()=>router.push('/moderation')} /> : null}
       <Text style={s.section}>Continue your journey</Text>
       <Shortcut title="Your story" description={details ? 'Review your profile and interests' : 'Tell people what makes you, you'} onPress={()=>router.push('/onboarding')}/>
       <Shortcut title="Profile photo" description={hasPhoto ? 'Photo submitted for private review' : 'Add a genuine photo of yourself'} onPress={()=>router.push('/profile-photo')}/>

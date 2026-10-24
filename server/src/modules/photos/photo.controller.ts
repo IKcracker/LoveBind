@@ -4,6 +4,7 @@ import { S3Client, PutObjectCommand, HeadObjectCommand, GetObjectCommand } from 
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { AuthGuard, AuthenticatedRequest } from '../auth/auth.guard';
 import { PrismaService } from '../../prisma/prisma.service';
+import { reconcileAccount } from '../moderation/activation';
 
 function storage() {
   const { R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET } = process.env;
@@ -57,9 +58,12 @@ export class PhotoController {
     if (!object.ContentLength || object.ContentLength > MAX_BYTES || !imageTypes.has(object.ContentType ?? '')) {
       throw new BadRequestException('Uploaded file does not meet photo requirements');
     }
-    await this.prisma.profile.update({
-      where: { userId: req.authUserId },
-      data: { photoObjectKey: key, photoReviewStatus: 'PENDING' },
+    await this.prisma.$transaction(async tx => {
+      await tx.profile.update({
+        where: { userId: req.authUserId },
+        data: { photoObjectKey: key, photoReviewStatus: 'PENDING', isVisible: false },
+      });
+      await reconcileAccount(tx, req.authUserId);
     });
     return { status: 'PENDING' };
   }
