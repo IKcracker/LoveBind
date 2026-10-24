@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Redirect, router } from 'expo-router';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import {
@@ -15,19 +15,22 @@ export default function LoginScreen() {
   const [fieldErrors, setFieldErrors] = useState<FormErrors>({});
   const [apiError, setApiError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const submitLock = useRef(false);
 
   const submit = useCallback(async () => {
-    if (busy) return;
+    if (submitLock.current) return;
     const errors = validateLogin(email, password);
     setFieldErrors(errors);
     setApiError(null);
     if (Object.keys(errors).length) return;
+    submitLock.current = true;
     setBusy(true);
     try {
       await signIn(email.trim().toLowerCase(), password);
     } catch (error) {
       setApiError(error instanceof Error ? error.message : 'Unable to sign in. Please try again.');
     } finally {
+      submitLock.current = false;
       setBusy(false);
     }
   }, [busy, email, password, signIn]);

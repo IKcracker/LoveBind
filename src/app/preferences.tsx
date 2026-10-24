@@ -3,13 +3,15 @@ import { Redirect } from 'expo-router';
 import { ActivityIndicator, View } from 'react-native';
 import { ActionButton, Brand, ChoiceChip, ErrorMessage, Field, Heading, InfoCard, Page, Palette } from '@/components/lovebind-ui';
 import { apiRequest } from '@/lib/api';
-import { useSession } from '@/lib/session';
+import { useSession, type Preferences } from '@/lib/session';
 
 const GOALS = ['Long-term relationship', 'Marriage-minded', 'Getting to know someone', 'Not sure yet'];
 
-export default function PreferencesScreen() {
-  const { loading, user, token, refresh } = useSession();
-  const preferences = user?.preferences;
+function PreferencesEditor({ preferences, token, refresh }: {
+  preferences: Preferences | null;
+  token: string;
+  refresh: () => Promise<void>;
+}) {
   const [minAge, setMinAge] = useState(String(preferences?.minAge ?? 23));
   const [maxAge, setMaxAge] = useState(String(preferences?.maxAge ?? 35));
   const [cities, setCities] = useState(preferences?.preferredCities.join(', ') ?? '');
@@ -18,28 +20,31 @@ export default function PreferencesScreen() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (loading) return <View style={{ flex: 1, justifyContent: 'center' }}><ActivityIndicator color={Palette.rose} /></View>;
-  if (!user || !token) return <Redirect href="/login" />;
-
   async function save() {
-    const lower = Number(minAge), upper = Number(maxAge);
+    if (busy) return;
+    const lower = Number(minAge);
+    const upper = Number(maxAge);
     if (!Number.isInteger(lower) || !Number.isInteger(upper) || lower < 18 || upper > 100 || lower > upper) {
       setError('Choose an age range between 18 and 100, with minimum no higher than maximum.');
       return;
     }
-    setBusy(true); setSuccess(false); setError(null);
+    setBusy(true);
+    setSuccess(false);
+    setError(null);
     try {
       await apiRequest('/preferences/me', 'PUT', {
         minAge: lower, maxAge: upper,
         preferredCities: cities.split(',').map((s) => s.trim()).filter(Boolean),
         relationshipGoals: goals,
-      }, token!);
+      }, token);
       await refresh();
       setSuccess(true);
-    } catch (e) { setError(e instanceof Error ? e.message : 'Could not save preferences.'); }
-    finally { setBusy(false); }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not save preferences.');
+    } finally {
+      setBusy(false);
+    }
   }
-
   return <Page>
     <Brand caption="Find alignment, not perfection" />
     <Heading title="Your ideal connection" subtitle="Tell LoveBind what matters to you. Mutual compatibility will later use both people's preferences and quiz answers." />
@@ -58,4 +63,11 @@ export default function PreferencesScreen() {
     <ErrorMessage message={error} />
     <ActionButton title="Save preferences" busy={busy} onPress={() => { void save(); }} />
   </Page>;
+}
+
+export default function PreferencesScreen() {
+  const { loading, user, token, refresh } = useSession();
+  if (loading) return <View style={{ flex: 1, justifyContent: 'center' }}><ActivityIndicator color={Palette.rose} /></View>;
+  if (!user || !token) return <Redirect href="/login" />;
+  return <PreferencesEditor key={user.id} preferences={user.preferences} token={token} refresh={refresh} />;
 }

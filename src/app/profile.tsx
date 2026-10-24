@@ -3,11 +3,15 @@ import { Redirect } from 'expo-router';
 import { ActivityIndicator, View } from 'react-native';
 import { ActionButton, Brand, ErrorMessage, Field, Heading, InfoCard, Page, Palette } from '@/components/lovebind-ui';
 import { apiRequest } from '@/lib/api';
-import { useSession } from '@/lib/session';
+import { useSession, type Profile } from '@/lib/session';
 
-export default function ProfileScreen() {
-  const { loading, user, token, refresh } = useSession();
-  const profile = user?.profile;
+type EditorProps = {
+  profile: Profile | null;
+  token: string;
+  refresh: () => Promise<void>;
+};
+
+function ProfileEditor({ profile, token, refresh }: EditorProps) {
   const [name, setName] = useState(profile?.displayName ?? '');
   const [city, setCity] = useState(profile?.city ?? '');
   const [bio, setBio] = useState(profile?.bio ?? '');
@@ -15,18 +19,25 @@ export default function ProfileScreen() {
   const [busy, setBusy] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  if (loading) return <View style={{ flex: 1, justifyContent: 'center' }}><ActivityIndicator color={Palette.rose} /></View>;
-  if (!user || !token) return <Redirect href="/login" />;
 
   async function save() {
-    setBusy(true); setSuccess(false); setError(null);
+    if (busy) return;
+    setBusy(true);
+    setSuccess(false);
+    setError(null);
     try {
-      await apiRequest('/profiles/me', 'PUT', { displayName: name, city, bio, relationshipGoal: goal }, token!);
+      await apiRequest('/profiles/me', 'PUT', {
+        displayName: name, city, bio, relationshipGoal: goal,
+      }, token);
       await refresh();
       setSuccess(true);
-    } catch (e) { setError(e instanceof Error ? e.message : 'Unable to save profile.'); }
-    finally { setBusy(false); }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unable to save profile.');
+    } finally {
+      setBusy(false);
+    }
   }
+
   return <Page>
     <Brand caption="Your story, told your way" />
     <Heading title="About you" subtitle="Share what matters to you. Your information stays private while account verification is pending." />
@@ -35,8 +46,15 @@ export default function ProfileScreen() {
     <Field label="Relationship intention" value={goal} onChangeText={setGoal} placeholder="e.g. Long-term relationship" maxLength={80} />
     <Field label="Your story" multiline value={bio} onChangeText={setBio} placeholder="Your interests, values, and what makes you, you..." maxLength={1000} />
     <InfoCard title="Privacy first">Your profile will not enter discovery until proper verification, consent and moderation controls are implemented.</InfoCard>
-    {success ? <InfoCard title="Profile saved">Your changes have been securely sent to the backend.</InfoCard> : null}
+    {success ? <InfoCard title="Profile saved">Your changes were saved to your account.</InfoCard> : null}
     <ErrorMessage message={error} />
     <ActionButton title="Save profile" busy={busy} onPress={() => { void save(); }} />
   </Page>;
+}
+
+export default function ProfileScreen() {
+  const { loading, user, token, refresh } = useSession();
+  if (loading) return <View style={{ flex: 1, justifyContent: 'center' }}><ActivityIndicator color={Palette.rose} /></View>;
+  if (!user || !token) return <Redirect href="/login" />;
+  return <ProfileEditor key={user.id} profile={user.profile} token={token} refresh={refresh} />;
 }

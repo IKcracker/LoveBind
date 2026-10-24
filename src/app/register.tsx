@@ -20,6 +20,7 @@ export default function RegisterScreen() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [apiError, setApiError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const submitLock = useRef(false);
   const strength = useMemo(() => passwordStrength(password), [password]);
 
   const clearError = useCallback((field: string) => {
@@ -28,12 +29,13 @@ export default function RegisterScreen() {
   }, []);
 
   const submit = useCallback(async () => {
-    if (busy) return;
+    if (submitLock.current) return;
     const data = { displayName, birthDate, email, password, confirmPassword, adultConfirmed };
     const next = validateRegistration(data);
     setErrors(next);
     setApiError(null);
     if (Object.keys(next).length) return;
+    submitLock.current = true;
     setBusy(true);
     try {
       await signUp({
@@ -45,6 +47,7 @@ export default function RegisterScreen() {
     } catch (error) {
       setApiError(error instanceof Error ? error.message : 'Could not create your account. Try again.');
     } finally {
+      submitLock.current = false;
       setBusy(false);
     }
   }, [busy, displayName, birthDate, email, password, confirmPassword, adultConfirmed, signUp]);
