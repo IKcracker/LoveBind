@@ -117,7 +117,7 @@ export class DiscoveryController {
       const other=await tx.user.findUnique({where:{id},select:{status:true,adminApprovalStatus:true,
         profile:{select:{isVisible:true,birthDate:true,city:true,relationshipGoal:true,photoReviewStatus:true}},
         identityVerification:{select:{status:true,ageEvidenceStatus:true,ageVerifiedAt:true}},
-        preferences:{select:{minAge:true,maxAge:true,preferredCities:true,relationshipGoals:true}}}}});
+        preferences:{select:{minAge:true,maxAge:true,preferredCities:true,relationshipGoals:true}}}});
       if(!other || other.status!=='ACTIVE' || other.adminApprovalStatus!=='APPROVED' ||
         !other.profile?.isVisible || other.profile.photoReviewStatus!=='APPROVED' ||
         other.identityVerification?.status!=='Approved' || other.identityVerification.ageEvidenceStatus!=='VERIFIED' ||
