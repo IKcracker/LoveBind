@@ -1,0 +1,235 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AccountStatus { PENDING ACTIVE SUSPENDED DELETED }
+enum MatchStatus { ACTIVE CLOSED }
+enum QuizStatus { PENDING IN_PROGRESS COMPLETED }
+enum DateStatus { PENDING ACCEPTED DECLINED CANCELLED EXPIRED }
+enum LedgerKind { PURCHASE RESERVE RELEASE SPEND REFUND ADJUSTMENT }
+enum ReportStatus { OPEN REVIEWING RESOLVED }
+enum MessageStatus { SENT DELETED }
+
+model User {
+  id          String @id @default(cuid())
+  authSubject String @unique
+  status      AccountStatus @default(PENDING)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  profile     Profile?
+  preferences PartnerPreference?
+  sentLikes   Like[] @relation("SentLikes")
+  receivedLikes Like[] @relation("ReceivedLikes")
+  messages    Message[]
+  answers     QuizAnswer[]
+  wallet      Wallet?
+  purchases   Purchase[]
+  dateRequests DateRequest[] @relation("DateRequester")
+  dateResponses DateRequest[] @relation("DateInvitee")
+  blocksSent   Block[] @relation("Blocker")
+  blocksReceived Block[] @relation("Blocked")
+  reportsMade  SafetyReport[] @relation("Reporter")
+  reportsAbout SafetyReport[] @relation("Reported")
+  consents     ConsentRecord[]
+}
+
+model Profile {
+  userId String @id
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName String
+  birthDate DateTime @db.Date
+  city String?
+  bio String? @db.VarChar(1000)
+  relationshipGoal String?
+  isVisible Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PartnerPreference {
+  userId String @id
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  minAge Int
+  maxAge Int
+  preferredCities String[]
+  relationshipGoals String[]
+  updatedAt DateTime @updatedAt
+}
+
+model Like {
+  id String @id @default(cuid())
+  fromId String
+  toId String
+  from User @relation("SentLikes", fields: [fromId], references: [id])
+  to User @relation("ReceivedLikes", fields: [toId], references: [id])
+  createdAt DateTime @default(now())
+  @@unique([fromId, toId])
+  @@index([toId])
+}
+
+model Match {
+  id String @id @default(cuid())
+  userAId String
+  userBId String
+  status MatchStatus @default(ACTIVE)
+  createdAt DateTime @default(now())
+  conversation Conversation?
+  quizzes QuizSession[]
+  dates DateRequest[]
+  @@unique([userAId, userBId])
+}
+
+model Conversation {
+  id String @id @default(cuid())
+  matchId String @unique
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  messages Message[]
+  createdAt DateTime @default(now())
+}
+
+model Message {
+  id String @id @default(cuid())
+  conversationId String
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId String
+  sender User @relation(fields: [senderId], references: [id])
+  content String @db.VarChar(5000)
+  status MessageStatus @default(SENT)
+  createdAt DateTime @default(now())
+  @@index([conversationId, createdAt])
+}
+
+model QuizTemplate {
+  id String @id @default(cuid())
+  version String @unique
+  questions Json
+  isActive Boolean @default(false)
+  sessions QuizSession[]
+}
+
+model QuizSession {
+  id String @id @default(cuid())
+  matchId String
+  match Match @relation(fields: [matchId], references: [id])
+  templateId String
+  template QuizTemplate @relation(fields: [templateId], references: [id])
+  status QuizStatus @default(PENDING)
+  answers QuizAnswer[]
+  assessment CompatibilityAssessment?
+  createdAt DateTime @default(now())
+  completedAt DateTime?
+  @@index([matchId, createdAt])
+}
+
+model QuizAnswer {
+  id String @id @default(cuid())
+  sessionId String
+  session QuizSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  userId String
+  user User @relation(fields: [userId], references: [id])
+  questionId String
+  ciphertext String @db.Text
+  createdAt DateTime @default(now())
+  @@unique([sessionId, userId, questionId])
+}
+
+model CompatibilityAssessment {
+  id String @id @default(cuid())
+  sessionId String @unique
+  session QuizSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  score Int
+  confidence Float?
+  rubricVersion String
+  modelVersion String?
+  summary Json
+  createdAt DateTime @default(now())
+}
+
+model Wallet {
+  id String @id @default(cuid())
+  userId String @unique
+  user User @relation(fields: [userId], references: [id])
+  available Int @default(0)
+  reserved Int @default(0)
+  ledger WalletEntry[]
+  updatedAt DateTime @updatedAt
+}
+
+model WalletEntry {
+  id String @id @default(cuid())
+  walletId String
+  wallet Wallet @relation(fields: [walletId], references: [id])
+  kind LedgerKind
+  amount Int
+  referenceKey String @unique
+  createdAt DateTime @default(now())
+  @@index([walletId, createdAt])
+}
+
+model Purchase {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id])
+  provider String
+  transactionId String
+  credits Int
+  status String
+  createdAt DateTime @default(now())
+  @@unique([provider, transactionId])
+}
+
+model DateRequest {
+  id String @id @default(cuid())
+  matchId String
+  match Match @relation(fields: [matchId], references: [id])
+  requesterId String
+  requester User @relation("DateRequester", fields: [requesterId], references: [id])
+  inviteeId String
+  invitee User @relation("DateInvitee", fields: [inviteeId], references: [id])
+  status DateStatus @default(PENDING)
+  startsAt DateTime
+  placeText String?
+  quotedCredits Int
+  quoteVersion String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([inviteeId, status])
+}
+
+model Block {
+  id String @id @default(cuid())
+  blockerId String
+  blockedId String
+  blocker User @relation("Blocker", fields: [blockerId], references: [id])
+  blocked User @relation("Blocked", fields: [blockedId], references: [id])
+  createdAt DateTime @default(now())
+  @@unique([blockerId, blockedId])
+}
+
+model SafetyReport {
+  id String @id @default(cuid())
+  reporterId String
+  reportedId String
+  reporter User @relation("Reporter", fields: [reporterId], references: [id])
+  reported User @relation("Reported", fields: [reportedId], references: [id])
+  category String
+  details String? @db.VarChar(2000)
+  status ReportStatus @default(OPEN)
+  createdAt DateTime @default(now())
+}
+
+model ConsentRecord {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id])
+  purpose String
+  granted Boolean
+  timestamp DateTime @default(now())
+  @@index([userId, purpose, timestamp])
+}
