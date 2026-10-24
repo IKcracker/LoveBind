@@ -294,6 +294,16 @@ export default function App(){
         <div><span>{detail.profile?.bio&&detail.profile.city&&detail.profile.relationshipGoal?<CheckCircle2 className="good"/>:<Clock3/>} Profile complete</span><Status value={detail.profile?.bio&&detail.profile.city&&detail.profile.relationshipGoal?'Ready':'Pending'}/></div>
        </div>
        <p className="detail-hint">Identity documents and biometric data remain with Didit. Only verification results are visible here.</p>
+        {detail.verification&&detail.verification.ageEvidenceStatus!=='VERIFIED'&&detail.status!=='SUSPENDED'&&detail.status!=='DELETED'&&
+         <button className="btn btn-white" disabled={rechecking} onClick={()=>void recheckAge(detail.id)}>
+          {rechecking?<Loader2 className="spin" size={16}/>:<RefreshCw size={16}/>} Recheck existing Didit evidence
+         </button>}
+        {recheckHistory.length>0&&<div><h4>Age recheck history</h4>
+         {recheckHistory.slice(0,6).map(x=><div key={x.id} className="history-row"><div>
+          <strong>{x.source} · {x.outcome} · {x.resultStatus||x.previousStatus}</strong>
+          <small>{x.issue||'No verification issue recorded'}</small>
+         </div><span>{DATE_TIME(x.checkedAt)}</span></div>)}
+        </div>
       </div>
       <div className="drawer-section"><div className="drawer-title"><h4>About this member</h4><CircleHelp size={17}/></div>
        <div className="detail-two-col"><div><span>City</span><strong>{detail.profile?.city||'Not set'}</strong></div><div><span>Occupation</span><strong>{detail.profile?.occupation||'Not set'}</strong></div><div><span>Looking for</span><strong>{detail.profile?.relationshipGoal||'Not set'}</strong></div><div><span>Profile visibility</span><strong>{detail.profile?.visible?'Visible':'Private'}</strong></div></div>
