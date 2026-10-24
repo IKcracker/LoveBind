@@ -123,9 +123,9 @@ const styles = StyleSheet.create({
 
   // Absolute fill belongs to a wrapping View, NOT directly to the Image.
   // This guarantees React Native measures the photo against the viewport.
-  backgroundLayer: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
+  backgroundLayer: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, overflow: 'hidden' },
   heroImage: { width: '100%', height: '100%' },
-  globalScrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(20,12,19,0.31)' },
+  globalScrim: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(20,12,19,0.31)' },
   topScrim: { position: 'absolute', top: 0, left: 0, right: 0, height: 135, backgroundColor: 'rgba(20,12,19,0.30)' },
   lowerScrim: { position: 'absolute', bottom: 0, left: 0, right: 0, height: '55%', backgroundColor: 'rgba(20,12,19,0.32)' },
   footerScrim: { position: 'absolute', bottom: 0, left: 0, right: 0, height: '24%', backgroundColor: 'rgba(20,12,19,0.26)' },
