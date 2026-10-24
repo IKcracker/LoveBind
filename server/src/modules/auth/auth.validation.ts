@@ -62,13 +62,25 @@ export function parseLogin(value: unknown) {
   const body = record(value);
   return { email: parseEmail(body.email), password: requiredText(body.password, 'password', 1, 128) };
 }
+export function parseShortList(value: unknown, field: string, limit = 8): string[] {
+  if (!Array.isArray(value) || value.length > limit ||
+      value.some(x => typeof x !== 'string' || x.trim().length < 2 || x.trim().length > 36)) {
+    throw new BadRequestException(field + ' must contain up to ' + limit + ' items, each 2-36 characters');
+  }
+  return [...new Set(value.map((item: string) => item.trim()))];
+}
+
 export function parseProfile(value: unknown) {
   const body = record(value);
   return {
     ...(body.displayName === undefined ? {} : { displayName: requiredText(body.displayName, 'displayName', 2, 60) }),
     ...(body.city === undefined ? {} : { city: optionalText(body.city, 'city', 100) }),
+    ...(body.cityPlaceId === undefined ? {} : { cityPlaceId: optionalText(body.cityPlaceId, 'cityPlaceId', 255) }),
     ...(body.bio === undefined ? {} : { bio: optionalText(body.bio, 'bio', 1000) }),
     ...(body.relationshipGoal === undefined ? {} : { relationshipGoal: optionalText(body.relationshipGoal, 'relationshipGoal', 80) }),
+    ...(body.occupation === undefined ? {} : { occupation: optionalText(body.occupation, 'occupation', 100) }),
+    ...(body.interests === undefined ? {} : { interests: parseShortList(body.interests, 'interests') }),
+    ...(body.coreValues === undefined ? {} : { coreValues: parseShortList(body.coreValues, 'coreValues') }),
   };
 }
 export function parsePreferences(value: unknown) {

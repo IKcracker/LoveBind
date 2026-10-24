@@ -54,8 +54,28 @@ async function smoke() {
   assert.equal(me.json.profile.displayName, 'Taylor', 'registration creates profile');
   assert.equal((await call('/profiles/me')).status, 401, 'profile requires a session');
 
+  // Seed one isolated catalogue row. New profile cities must be selected from
+  // the canonical GeoNames list rather than accepted as unchecked free text.
+  const { PrismaClient } = require('@prisma/client');
+  const prisma = new PrismaClient();
+  try {
+    await prisma.geoCity.create({
+      data: { id: 987654321, name: 'Pretoria', asciiName: 'Pretoria',
+        countryCode: 'ZA', admin1Code: '06', population: 120000,
+        latitude: -25.74, longitude: 28.19 },
+    });
+  } finally {
+    await prisma.$disconnect();
+  }
+  const suggestions = await call('/locations/cities?q=Pre', 'GET', undefined, token);
+  assert.equal(suggestions.status, 200, 'city suggestions return');
+  assert.ok(suggestions.json.some(item => item.placeId === 'geonames:987654321'), 'test city suggested');
+  const uncheckedCity = await call('/profiles/me', 'PUT', {
+    city: 'Pretoria', bio: 'Reading and hiking', relationshipGoal: 'Long-term',
+  }, token);
+  assert.equal(uncheckedCity.status, 400, 'unchecked city rejected');
   const updated = await call('/profiles/me', 'PUT', {
-    displayName: 'Taylor A', city: 'Pretoria',
+    displayName: 'Taylor A', city: 'Pretoria', cityPlaceId: 'geonames:987654321',
     bio: 'Reading and hiking', relationshipGoal: 'Long-term',
   }, token);
   assert.equal(updated.status, 200, 'can update own profile');

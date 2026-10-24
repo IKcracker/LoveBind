@@ -224,7 +224,7 @@ export function AdultCheckbox({
         <View style={[styles.checkbox, value && styles.checkboxSelected]}>
           {value ? <Text style={styles.checkMark}>✓</Text> : null}
         </View>
-        <Text style={styles.checkboxLabel}>I confirm that I'm at least 18 years old.</Text>
+        <Text style={styles.checkboxLabel}>I confirm that I am at least 18 years old.</Text>
       </Pressable>
       {error ? <Text accessibilityRole="alert" style={styles.errorText}>{error}</Text> : null}
     </View>

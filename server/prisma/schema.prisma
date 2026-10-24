@@ -70,6 +70,7 @@ model User {
   credential   EmailCredential?
   sessions     AuthSession[]
   consents     ConsentRecord[]
+  identityVerification IdentityVerification?
 }
 
 model Profile {
@@ -78,9 +79,15 @@ model Profile {
   displayName String
   birthDate DateTime @db.Date
   city String?
+  cityPlaceId String? @db.VarChar(255)
   bio String? @db.VarChar(1000)
   relationshipGoal String?
   isVisible Boolean @default(false)
+  occupation String? @db.VarChar(100)
+  interests String[] @default([])
+  coreValues String[] @default([])
+  photoObjectKey String?
+  photoReviewStatus String @default("NONE")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -287,4 +294,36 @@ model AuthSession {
   revokedAt   DateTime?
   createdAt   DateTime @default(now())
   @@index([userId, expiresAt])
+}
+
+model IdentityVerification {
+  id String @id @default(cuid())
+  userId String @unique
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerSessionId String @unique
+  status String @default("Not Started")
+  consentAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  lastCheckedAt DateTime?
+  @@index([status])
+}
+
+/**
+ * GeoNames cities1000 catalogue, imported from an openly licensed file.
+ * The account references a city by the "geonames:<id>" stable identifier.
+ * We never store or request the member's precise device position.
+ */
+model GeoCity {
+  id          Int     @id
+  name        String  @db.VarChar(120)
+  asciiName   String  @db.VarChar(120)
+  countryCode String  @db.VarChar(2)
+  admin1Code  String? @db.VarChar(40)
+  population  Int     @default(0)
+  latitude    Float
+  longitude   Float
+
+  @@index([countryCode])
+  @@index([population])
 }

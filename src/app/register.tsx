@@ -1,3 +1,4 @@
+import { BirthDatePicker } from '@/components/birth-date-picker';
 import { DevApiStatus } from '@/components/dev-api-status';
 import { useCallback, useRef, useState } from 'react';
 import { Redirect, router } from 'expo-router';
@@ -82,16 +83,7 @@ export default function RegisterScreen() {
             maxLength={60}
             error={errors.displayName}
           />
-          <AuthField
-            label="Your date of birth"
-            placeholder="YYYY-MM-DD"
-            helper="LoveBind is for adults aged 18 and older. Your date of birth isn't public."
-            value={birthDate}
-            onChangeText={(value) => { setBirthDate(value); clear('birthDate'); }}
-            keyboardType="numbers-and-punctuation"
-            maxLength={10}
-            error={errors.birthDate}
-          />
+          <BirthDatePicker value={birthDate} onChange={(value) => { setBirthDate(value); clear('birthDate'); }} error={errors.birthDate} />
           <AdultCheckbox
             value={adultConfirmed}
             onChange={(value) => { setAdultConfirmed(value); clear('adultConfirmed'); }}

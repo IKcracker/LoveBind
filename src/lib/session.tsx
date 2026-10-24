@@ -4,8 +4,9 @@ import * as SecureStore from 'expo-secure-store';
 import { apiRequest, ApiError } from './api';
 
 export type Profile = {
-  displayName: string; birthDate: string; city: string | null;
+  displayName: string; birthDate: string; city: string | null; cityPlaceId?: string | null;
   bio: string | null; relationshipGoal: string | null; isVisible: boolean;
+  occupation?: string | null; interests?: string[]; coreValues?: string[]; photoReviewStatus?: string;
 };
 export type Preferences = {
   minAge: number; maxAge: number; preferredCities: string[]; relationshipGoals: string[];

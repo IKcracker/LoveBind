@@ -1,8 +1,8 @@
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useWindowDimensions, ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ActionButton, Brand, Heading, InfoCard, Page } from '@/components/lovebind-ui';
+import { MemberHome } from '@/components/member-home';
 import { BrandLockup, Love, serif } from '@/components/auth-screens';
 import { useSession } from '@/lib/session';
 
@@ -86,27 +86,6 @@ function WelcomeScreen() {
   );
 }
 
-function AccountHome() {
-  const { user, signOut } = useSession();
-  const profile = user?.profile;
-  if (!user) return null;
-  return (
-    <Page>
-      <Brand />
-      <Heading title={'Hello, ' + (profile?.displayName || 'there')} subtitle="Start with your story. The rest comes later." />
-      <InfoCard title="Your profile">
-        {profile?.city ? 'Based in ' + profile.city + '. ' : 'Add your city. '}
-        {profile?.relationshipGoal ? 'Looking for: ' + profile.relationshipGoal : 'Tell us what kind of connection you want.'}
-      </InfoCard>
-      <ActionButton title="Edit profile" onPress={() => router.push('/profile')} />
-      <ActionButton title="Partner preferences" secondary onPress={() => router.push('/preferences')} />
-      <InfoCard title="In development">Matching, messaging, compatibility conversations and date planning will be available after safety and verification controls are ready.</InfoCard>
-      <InfoCard title="Account status">Your account is {user.status.toLowerCase()}. Your profile is not discoverable until verification is available.</InfoCard>
-      <ActionButton title="Sign out" secondary onPress={() => { void signOut(); }} />
-    </Page>
-  );
-}
-
 export default function Index() {
   const { user, loading } = useSession();
   if (loading) return (
@@ -114,7 +93,9 @@ export default function Index() {
       <ActivityIndicator color={Love.wine} accessibilityLabel="Loading LoveBind" />
     </View>
   );
-  return user ? <AccountHome /> : <WelcomeScreen />;
+  if (!user) return <WelcomeScreen />;
+  if (!user.profile?.city || !user.profile?.relationshipGoal || !user.profile?.bio) return <Redirect href="/onboarding" />;
+  return <MemberHome />;
 }
 
 const styles = StyleSheet.create({

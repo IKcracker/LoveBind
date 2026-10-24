@@ -11,7 +11,9 @@
     "test": "node --test --require ts-node/register src/modules/compatibility/scoring.test.ts src/modules/auth/auth.validation.test.ts",
     "prisma:generate": "node scripts/prisma-cli.cjs generate",
     "prisma:validate": "node scripts/prisma-cli.cjs validate",
-    "prisma:migrate": "node scripts/prisma-cli.cjs migrate dev"
+    "prisma:migrate": "node scripts/prisma-cli.cjs migrate dev",
+    "prisma:deploy": "node scripts/prisma-cli.cjs migrate deploy",
+    "prisma:status": "node scripts/prisma-cli.cjs migrate status"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
@@ -20,7 +22,9 @@
     "@prisma/client": "^6.19.0",
     "dotenv": "^16.6.0",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.2"
+    "rxjs": "^7.8.2",
+    "@aws-sdk/client-s3": "^3.900.0",
+    "@aws-sdk/s3-request-presigner": "^3.900.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
