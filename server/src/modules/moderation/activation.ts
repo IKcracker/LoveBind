@@ -83,6 +83,56 @@ function positive(check: Obj): boolean {
   return isApproved(check.status) && check.passed !== false && check.is_document_valid !== false;
 }
 
+type CheckGroup = 'id' | 'liveness' | 'faceMatch';
+type EvidenceContainer = { location: 'root' | 'decision' | 'decision_v3'; value: Obj };
+function evidenceContainers(root: Obj): EvidenceContainer[] {
+  const decision = obj(root.decision);
+  const decisionV3 = obj(root.decision_v3);
+  return [
+    ...(decision ? [{ location: 'decision' as const, value: decision }] : []),
+    ...(decisionV3 ? [{ location: 'decision_v3' as const, value: decisionV3 }] : []),
+    { location: 'root' as const, value: root },
+  ];
+}
+function groupCount(result: Obj, type: CheckGroup): number {
+  if (type === 'id') return checks(result, 'id_verifications', 'id_verification').length;
+  if (type === 'liveness') return checks(result, 'liveness_checks', 'liveness').length;
+  return checks(result, 'face_matches', 'face_match').length;
+}
+function selectEvidenceContainer(root: Obj): EvidenceContainer | undefined {
+  const candidates = evidenceContainers(root);
+  // A response may contain summary evidence inside decision alongside full
+  // V3 checks at the root. Prefer a complete, self-contained set of checks.
+  // Never merge fields from separate containers to manufacture a pass.
+  return candidates.find(x => groupCount(x.value, 'id') > 0 &&
+    groupCount(x.value, 'liveness') > 0 && groupCount(x.value, 'faceMatch') > 0)
+    ?? candidates.find(x => hasEvidenceKeys(x.value));
+}
+export function summarizeDiditEvidence(payload: unknown, currentWorkflowId?: string): {
+  providerStatus: string;
+  workflowMatchesCurrent: boolean | null;
+  selectedLocation: string | null;
+  containers: { location: string; idChecks: number; livenessChecks: number; faceMatches: number }[];
+} {
+  const root = obj(payload);
+  if (!root) return { providerStatus: 'Unknown', workflowMatchesCurrent: null,
+    selectedLocation: null, containers: [] };
+  const sourceWorkflowId = typeof root.workflow_id === 'string' ? root.workflow_id
+    : typeof obj(root.session)?.workflow_id === 'string' ? obj(root.session)!.workflow_id as string : null;
+  return {
+    providerStatus: typeof root.status === 'string' ? root.status : 'Unknown',
+    workflowMatchesCurrent: sourceWorkflowId && currentWorkflowId
+      ? sourceWorkflowId === currentWorkflowId : null,
+    selectedLocation: selectEvidenceContainer(root)?.location ?? null,
+    containers: evidenceContainers(root).map(({ location, value }) => ({
+      location,
+      idChecks: groupCount(value, 'id'),
+      livenessChecks: groupCount(value, 'liveness'),
+      faceMatches: groupCount(value, 'faceMatch'),
+    })),
+  };
+}
+
 export function evaluateDiditAgeEvidence(payload: unknown, registeredBirthDate: Date,
   now = new Date()): DiditAgeEvaluation {
   const fail = (status: AgeDecision, issue: AgeEvidenceIssue): DiditAgeEvaluation => ({ status, issue });
@@ -93,8 +143,7 @@ export function evaluateDiditAgeEvidence(payload: unknown, registeredBirthDate: 
   // Webhooks may wrap them in `decision`, while other SDKs use `decision_v3`.
   // We require a self-contained evidence object; never combine checks from
   // different objects to manufacture a passing result.
-  const result = [obj(root.decision), obj(root.decision_v3), root]
-    .find((candidate): candidate is Obj => candidate !== null && hasEvidenceKeys(candidate));
+  const result = selectEvidenceContainer(root)?.value;
   if (!result) return fail('CHECKS_INCOMPLETE', 'ID_CHECK_MISSING');
 
   const ids = checks(result, 'id_verifications', 'id_verification');
