@@ -75,6 +75,7 @@ export function parseProfile(value: unknown) {
   return {
     ...(body.displayName === undefined ? {} : { displayName: requiredText(body.displayName, 'displayName', 2, 60) }),
     ...(body.city === undefined ? {} : { city: optionalText(body.city, 'city', 100) }),
+    ...(body.cityPlaceId === undefined ? {} : { cityPlaceId: optionalText(body.cityPlaceId, 'cityPlaceId', 255) }),
     ...(body.bio === undefined ? {} : { bio: optionalText(body.bio, 'bio', 1000) }),
     ...(body.relationshipGoal === undefined ? {} : { relationshipGoal: optionalText(body.relationshipGoal, 'relationshipGoal', 80) }),
     ...(body.occupation === undefined ? {} : { occupation: optionalText(body.occupation, 'occupation', 100) }),

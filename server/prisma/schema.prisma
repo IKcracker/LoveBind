@@ -79,6 +79,7 @@ model Profile {
   displayName String
   birthDate DateTime @db.Date
   city String?
+  cityPlaceId String? @db.VarChar(255)
   bio String? @db.VarChar(1000)
   relationshipGoal String?
   isVisible Boolean @default(false)

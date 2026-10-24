@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthField, BrandLockup, FormButton, FormError, Love, serif } from '@/components/auth-screens';
+import { CityPicker } from '@/components/city-picker';
 import { apiRequest } from '@/lib/api';
 import { useSession, type Profile } from '@/lib/session';
 
@@ -12,6 +13,7 @@ function csv(value: string): string[] { return [...new Set(value.split(',').map(
 function ProfileEditor({ profile, token, refresh }: EditorProps) {
   const [name, setName] = useState(profile.displayName);
   const [city, setCity] = useState(profile.city ?? '');
+  const [cityPlaceId, setCityPlaceId] = useState(profile.cityPlaceId ?? null);
   const [bio, setBio] = useState(profile.bio ?? '');
   const [goal, setGoal] = useState(profile.relationshipGoal ?? '');
   const [occupation, setOccupation] = useState(profile.occupation ?? '');
@@ -34,10 +36,11 @@ function ProfileEditor({ profile, token, refresh }: EditorProps) {
 
   async function save() {
     if (busy) return;
+    if (!cityPlaceId && city !== profile.city) { setError('Select a valid city from suggestions.'); return; }
     setBusy(true); setSaved(false); setError(null);
     try {
       await apiRequest('/profiles/me', 'PUT', {
-        displayName: name, city, bio, relationshipGoal: goal, occupation,
+        displayName: name, city, cityPlaceId, bio, relationshipGoal: goal, occupation,
         interests: csv(interests), coreValues: csv(values),
       }, token);
       await refresh(); setSaved(true);
@@ -65,7 +68,7 @@ function ProfileEditor({ profile, token, refresh }: EditorProps) {
     {photoError ? <Text style={s.note}>Your photo preview could not be loaded. Try again later.</Text> : null}
     <Text style={s.section}>The basics</Text>
     <AuthField label="Display name" value={name} onChangeText={setName} maxLength={60} />
-    <AuthField label="City" value={city} onChangeText={setCity} placeholder="Where are you based?" maxLength={100}/>
+    <CityPicker token={token} city={city} placeId={cityPlaceId} onSelect={(name,id)=>{setCity(name);setCityPlaceId(id);}} />
     <AuthField label="Relationship intention" value={goal} onChangeText={setGoal} placeholder="What are you hoping to find?" maxLength={80}/>
     <AuthField label="Occupation" value={occupation} onChangeText={setOccupation} placeholder="Optional" maxLength={100}/>
     <Text style={s.section}>What makes you, you</Text>

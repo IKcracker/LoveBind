@@ -4,6 +4,7 @@ import { ActivityIndicator, ScrollView, Text, View, StyleSheet } from 'react-nat
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthField, BrandLockup, FormButton, FormError, Love, serif } from '@/components/auth-screens';
 import { useSession } from '@/lib/session';
+import { CityPicker } from '@/components/city-picker';
 import { apiRequest } from '@/lib/api';
 
 function split(value: string): string[] {
@@ -13,6 +14,7 @@ function split(value: string): string[] {
 export default function Onboarding() {
   const { user, token, refresh, loading } = useSession();
   const [city, setCity] = useState(user?.profile?.city ?? '');
+  const [cityPlaceId, setCityPlaceId] = useState(user?.profile?.cityPlaceId ?? null);
   const [bio, setBio] = useState(user?.profile?.bio ?? '');
   const [goal, setGoal] = useState(user?.profile?.relationshipGoal ?? '');
   const [occupation, setOccupation] = useState(user?.profile?.occupation ?? '');
@@ -23,6 +25,7 @@ export default function Onboarding() {
 
   async function submit() {
     if (!token || busy) return;
+    if (!cityPlaceId && city !== user?.profile?.city) { setError('Select a city from suggestions.'); return; }
     if (city.trim().length < 2 || bio.trim().length < 30 || goal.trim().length < 3) {
       setError('Enter your city, relationship intention and at least 30 characters about yourself.');
       return;
@@ -36,7 +39,7 @@ export default function Onboarding() {
     setBusy(true); setError(null);
     try {
       await apiRequest('/profiles/me', 'PUT', {
-        city, bio, relationshipGoal: goal, occupation, interests: interestList, coreValues: valueList,
+        city, cityPlaceId, bio, relationshipGoal: goal, occupation, interests: interestList, coreValues: valueList,
       }, token);
       await refresh();
       router.replace('/profile-photo');
@@ -54,7 +57,7 @@ export default function Onboarding() {
       <Text style={styles.progress}>01 / 03 · YOUR STORY</Text>
       <Text style={styles.head}>A little about you.</Text>
       <Text style={styles.description}>Real connections start with knowing who you are. Your profile stays private while verification is pending.</Text>
-      <AuthField label="Your city" value={city} onChangeText={setCity} placeholder="Pretoria" maxLength={100} />
+      <CityPicker token={token} city={city} placeId={cityPlaceId} onSelect={(name,id)=>{setCity(name);setCityPlaceId(id);}} />
       <AuthField label="Relationship intention" value={goal} onChangeText={setGoal} placeholder="Something long term" maxLength={80} />
       <AuthField label="Occupation (optional)" value={occupation} onChangeText={setOccupation} placeholder="What keeps you busy?" maxLength={100} />
       <AuthField label="Interests" value={interests} onChangeText={setInterests} placeholder="Art, hiking, cooking" helper="Separate each interest with a comma." maxLength={295} />
