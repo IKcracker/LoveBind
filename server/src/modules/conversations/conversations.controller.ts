@@ -78,6 +78,11 @@ export class ConversationsController {
     if (typeof raw !== 'string' || raw.trim().length < 1 || raw.trim().length > 1500)
       throw new BadRequestException('Message must contain between 1 and 1500 characters');
     const content = raw.trim();
+    // The encrypted/base64 payload must fit Message.content VARCHAR(5000),
+    // including multibyte UTF-8 characters and the authentication tag.
+    if (Buffer.byteLength(content, 'utf8') > 3500) {
+      throw new BadRequestException('Message exceeds the maximum encoded size');
+    }
     const ciphertext = encryptMessage(content);
     return this.prisma.$transaction(async tx => {
       // Use exactly the same pair lock as block/unmatch so safety mutations win.
