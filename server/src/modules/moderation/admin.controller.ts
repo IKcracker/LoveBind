@@ -158,6 +158,13 @@ export class AdminController {
     }, { isolationLevel: 'Serializable' });
   }
 
+  @Get('members/:id/age-evidence-diagnostics')
+  async ageEvidenceDiagnostics(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
+    if (!(await canModerate(this.prisma, req.authUserId))) throw new ForbiddenException('Administrator permission required');
+    checkId(id);
+    return this.ageRecheck.diagnose(id);
+  }
+
   @Post('members/:id/recheck-age')
   async recheckAge(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
     if (!(await canModerate(this.prisma, req.authUserId))) throw new ForbiddenException('Administrator permission required');

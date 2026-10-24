@@ -1,6 +1,6 @@
 import { ConflictException, Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { evaluateDiditAgeEvidence, reconcileAccount } from './activation';
+import { evaluateDiditAgeEvidence, reconcileAccount, summarizeDiditEvidence } from './activation';
 
 const DIDIT = 'https://verification.didit.me/v3/session/';
 const COOLDOWN_MS = 5 * 60 * 1000;
@@ -88,6 +88,21 @@ export class AgeRecheckService {
       }
     }
     return {processed:results.length,results,maxPerRequest:5};
+  }
+
+  async diagnose(memberId: string) {
+    const key=process.env.DIDIT_API_KEY;
+    if(!key?.trim())throw new ServiceUnavailableException('Didit is not configured');
+    const member=await this.prisma.user.findUnique({where:{id:memberId},
+      select:{identityVerification:{select:{providerSessionId:true}}}});
+    if(!member?.identityVerification)throw new ConflictException('No existing Didit session');
+    const res=await fetch(DIDIT+encodeURIComponent(member.identityVerification.providerSessionId)+'/decision/',{
+      headers:{'x-api-key':key},signal:AbortSignal.timeout(15000),
+    }).catch(()=>{throw new ServiceUnavailableException('Didit is unavailable');});
+    if(!res.ok)throw new ServiceUnavailableException('Didit decision unavailable');
+    const payload:unknown=await res.json();
+    // Report only presence counts, not names, DOB, provider IDs or biometric data.
+    return summarizeDiditEvidence(payload,process.env.DIDIT_WORKFLOW_ID);
   }
 
   async history(memberId:string) {
