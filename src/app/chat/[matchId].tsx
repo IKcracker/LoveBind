@@ -19,7 +19,6 @@ export default function ConversationScreen(){
  const [text,setText]=useState('');
  const [error,setError]=useState<string|null>(null);
  const [sending,setSending]=useState(false);
- const [fetching,setFetching]=useState(false);
  const [historyBusy,setHistoryBusy]=useState(false);
  const [refreshCount,setRefreshCount]=useState(0);
  const validId=typeof matchId==='string'&&/^[A-Za-z0-9_-]{10,100}$/.test(matchId);
