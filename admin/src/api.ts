@@ -1,5 +1,9 @@
 const configured = import.meta.env.VITE_API_URL as string | undefined;
 export const baseUrl = (configured?.trim() || 'http://localhost:4000').replace(/\/$/, '');
+const configurationError = !configured?.trim() && typeof window !== 'undefined' &&
+  !['localhost', '127.0.0.1'].includes(window.location.hostname)
+  ? 'Admin API URL is not configured. Set VITE_API_URL to the HTTPS backend origin in the frontend deployment settings, then rebuild the CRM.'
+  : null;
 
 export class HttpError extends Error {
   constructor(message:string, public status:number){super(message);this.name='HttpError';}
@@ -7,6 +11,10 @@ export class HttpError extends Error {
 export async function request<T>(
   path:string, token:string | null, method:'GET'|'POST'='GET', body?:unknown,
 ):Promise<T>{
+  if (configurationError) throw new Error(configurationError);
+  if (typeof window !== 'undefined' && window.location.protocol === 'https:' && baseUrl.startsWith('http:')) {
+    throw new Error('Insecure API URL: the CRM uses HTTPS but VITE_API_URL is HTTP. Configure the HTTPS backend URL and rebuild.');
+  }
   const abort = new AbortController();
   const timer = setTimeout(()=>abort.abort(),20000);
   try{
@@ -23,6 +31,14 @@ export async function request<T>(
       throw new HttpError(res.status>=500?'The API encountered a problem. Check server logs.':message,res.status);
     }
     return payload as T;
+  }catch(error){
+    if (error instanceof TypeError && /fetch|network/i.test(error.message)) {
+      throw new Error('Cannot connect to LoveBind API ('+baseUrl+'). Verify the backend is online, VITE_API_URL is configured, and CORS_ORIGINS includes the CRM website.');
+    }
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('LoveBind API did not respond within 20 seconds ('+baseUrl+'). Check backend health and deployment logs.');
+    }
+    throw error;
   }finally{clearTimeout(timer);}
 }
 
