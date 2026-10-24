@@ -7,13 +7,45 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum AccountStatus { PENDING ACTIVE SUSPENDED DELETED }
-enum MatchStatus { ACTIVE CLOSED }
-enum QuizStatus { PENDING IN_PROGRESS COMPLETED }
-enum DateStatus { PENDING ACCEPTED DECLINED CANCELLED EXPIRED }
-enum LedgerKind { PURCHASE RESERVE RELEASE SPEND REFUND ADJUSTMENT }
-enum ReportStatus { OPEN REVIEWING RESOLVED }
-enum MessageStatus { SENT DELETED }
+enum AccountStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+enum MatchStatus {
+  ACTIVE
+  CLOSED
+}
+enum QuizStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
+enum DateStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
+  EXPIRED
+}
+enum LedgerKind {
+  PURCHASE
+  RESERVE
+  RELEASE
+  SPEND
+  REFUND
+  ADJUSTMENT
+}
+enum ReportStatus {
+  OPEN
+  REVIEWING
+  RESOLVED
+}
+enum MessageStatus {
+  SENT
+  DELETED
+}
 
 model User {
   id          String @id @default(cuid())
