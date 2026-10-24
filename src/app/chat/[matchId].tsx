@@ -64,6 +64,12 @@ export default function ConversationScreen(){
    {thread?<Pressable accessibilityRole="button" accessibilityLabel="Safety options" onPress={()=>router.push({pathname:'/member-safety',params:{memberId:thread.other.id,name:thread.other.name,matchId}})} style={s.headerAction}>
       <Icon name="shield" size={22} color={Love.wine}/></Pressable>:<View style={s.headerAction}/>}
   </View>
+  {thread?<Pressable accessibilityRole="button" accessibilityLabel="Open your compatibility quiz"
+    onPress={()=>router.push({pathname:'/quiz/[matchId]',params:{matchId:matchId!}})}
+    style={s.quizCta}>
+    <Text style={s.quizText}>♡ Explore our compatibility quiz</Text>
+    <Text style={s.quizHint}>Seven questions · Private answers · Shared insight</Text>
+  </Pressable>:null}
   {error?<View style={s.errorBox}><Notice tone="error" message={error}/><Pressable onPress={reload}><Text style={s.retry}>Retry</Text></Pressable></View>:null}
   <KeyboardAvoidingView style={s.body} behavior={Platform.OS==='ios'?'padding':undefined} keyboardVerticalOffset={8}>
    <ScrollView contentContainerStyle={s.messages} keyboardShouldPersistTaps="handled">
@@ -94,6 +100,9 @@ const s=StyleSheet.create({
  safe:{flex:1,backgroundColor:Love.paper},body:{flex:1},
  center:{flex:1,justifyContent:'center',alignItems:'center'},
  header:{flexDirection:'row',alignItems:'center',borderBottomWidth:StyleSheet.hairlineWidth,borderBottomColor:Love.line,backgroundColor:Love.white,paddingVertical:7,paddingHorizontal:10,gap:8},
+ quizCta:{paddingHorizontal:20,paddingVertical:13,backgroundColor:Love.wineSoft,gap:4},
+ quizText:{fontSize:14,color:Love.wine,fontWeight:'800'},
+ quizHint:{fontSize:12,color:Love.muted},
  headerAction:{height:46,width:44,alignItems:'center',justifyContent:'center'},
  headerTitle:{flex:1,gap:3},member:{fontWeight:'800',color:Love.ink,fontSize:16},
  hint:{fontSize:11,color:Love.muted},messages:{flexGrow:1,paddingHorizontal:18,paddingTop:22,paddingBottom:32,gap:12},

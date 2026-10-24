@@ -11,9 +11,10 @@ import { ModerationModule } from './modules/moderation/moderation.module';
 import { DiscoveryModule } from './modules/discovery/discovery.module';
 import { SafetyModule } from './modules/safety/safety.module';
 import { ConversationsModule } from './modules/conversations/conversations.module';
+import { QuizzesModule } from './modules/quizzes/quizzes.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, ProfilesModule, PreferencesModule, VerificationModule, PhotosModule, LocationsModule, ModerationModule, DiscoveryModule, SafetyModule, ConversationsModule],
+  imports: [PrismaModule, AuthModule, ProfilesModule, PreferencesModule, VerificationModule, PhotosModule, LocationsModule, ModerationModule, DiscoveryModule, SafetyModule, ConversationsModule, QuizzesModule],
   controllers: [HealthController],
 })
 export class AppModule {}

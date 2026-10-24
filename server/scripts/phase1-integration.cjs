@@ -105,12 +105,57 @@ module.exports = async function phase1(call, adminToken) {
     assert.equal(secondPage.json.nextCursor,null,'final history page stops pagination');
     assert.ok(!firstPage.json.messages.some(x=>secondPage.json.messages.some(y=>x.id===y.id)),
       'chat pagination has no overlapping messages');
+    // Versioned compatibility reflection between the two mutually approved adults.
+    const quiz='/quizzes/matches/'+match.id;
+    assert.equal((await call(quiz)).status,401,'quiz requires authentication');
+    assert.equal((await call(quiz,'GET',undefined,c.token)).status,404,'outsider cannot read private quiz');
+    assert.equal((await call(quiz,'GET',undefined,adminToken)).status,404,'moderator cannot read members\' quiz answers');
+    const beforeQuiz=await call(quiz,'GET',undefined,a.token);
+    assert.equal(beforeQuiz.json.status,'NOT_STARTED','quiz starts only on member action');
+    assert.equal(beforeQuiz.json.questions.length,7);
+    assert.equal((await call(quiz+'/answer','PUT',{questionId:'intent',value:3},a.token)).status,409,
+      'answer cannot bypass quiz start');
+    const [startedA,startedB]=await Promise.all([
+      call(quiz+'/start','POST',{},a.token),call(quiz+'/start','POST',{},b.token)]);
+    assert.equal(startedA.status,201,'first member starts quiz');
+    assert.equal(startedB.status,201,'concurrent start is idempotent');
+    assert.equal(startedA.json.sessionId,startedB.json.sessionId);
+    assert.equal((await call(quiz+'/answer','PUT',{questionId:'intent',value:7},a.token)).status,400,
+      'out-of-range quiz answers rejected');
+    const questions=startedA.json.questions;
+    for(const question of questions) {
+      const saved=await call(quiz+'/answer','PUT',{questionId:question.id,value:5},a.token);
+      assert.equal(saved.status,200,'member saves their own answer');
+    }
+    const otherView=await call(quiz,'GET',undefined,b.token);
+    assert.equal(otherView.json.partnerProgress,7,'partner progress visible');
+    assert.deepEqual(otherView.json.myAnswers,[],'other participant cannot read private responses');
+    assert.equal(otherView.json.result,null,'score must remain hidden until both finished');
+    const sample=await db.quizAnswer.findFirst({where:{sessionId:startedA.json.sessionId,userId:a.id}});
+    assert.ok(sample.ciphertext.startsWith('qz1.'),'individual answers encrypted');
+    for(const question of questions) {
+      const saved=await call(quiz+'/answer','PUT',{questionId:question.id,value:4},b.token);
+      assert.equal(saved.status,200,'partner saves their own answer');
+    }
+    const completed=await call(quiz,'GET',undefined,a.token);
+    assert.equal(completed.json.status,'COMPLETED','shared questionnaire completes after both answer');
+    assert.equal(completed.json.result.score,75,'rubric computes symmetrical alignment');
+    assert.equal(completed.json.result.summary.recommendation,'STRONG');
+    assert.equal((await call(quiz,'GET',undefined,b.token)).json.result.score,75,
+      'partners see identical scored insight');
+    assert.equal((await call(quiz+'/answer','PUT',{questionId:questions[0].id,value:1},a.token)).status,409,
+      'completed questionnaire cannot be rewritten');
+    assert.equal(await db.compatibilityAssessment.count({where:{sessionId:startedA.json.sessionId}}),1,
+      'exactly one assessment is stored');
+
     await call('/profiles/me/visibility', 'PUT', { visible: false }, b.token);
     assert.ok((await call('/discovery/matches', 'GET', undefined, a.token)).json.matches.some(x => x.id === match.id), 'hide from discovery retains existing matches');
     await call('/profiles/me/visibility', 'PUT', { visible: true }, b.token);
     assert.equal((await call('/safety/matches/' + match.id + '/unmatch', 'POST', {}, c.token)).status, 404, 'outsider cannot unmatch');
 
     assert.equal((await block(b, a)).status, 201);
+    assert.equal((await call(quiz,'GET',undefined,a.token)).status,404,'block revokes quiz access');
+    assert.equal((await call(quiz+'/start','POST',{},a.token)).status,404,'block prevents resuming quiz');
     assert.equal((await call(chatPath,'GET',undefined,a.token)).status,404,
       'blocked pairs cannot read old messages');
     assert.equal((await call(chatPath,'POST',{content:'Bypass blocked user'},a.token)).status,404,
