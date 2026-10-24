@@ -43,7 +43,7 @@ export default function Verification() {
     <Text style={s.description}>To help make LoveBind a safer place, verify your identity with our verification partner. Your identification documents and selfie are collected by the provider, not by LoveBind.</Text>
     <View style={s.card}>
       <Text style={s.cardTitle}>Identity verification by Didit</Text>
-      <Text style={s.cardText}>You will be taken to Didit's secure verification experience for a document check and selfie/liveness check. You can return here to check progress.</Text>
+      <Text style={s.cardText}>You will be taken to the provider's secure verification experience for a document check and selfie/liveness check. You can return here to check progress.</Text>
       <Text style={s.status}>Status: {status}</Text>
       <Pressable onPress={() => setConsent(!consent)} accessibilityRole="checkbox" accessibilityState={{checked:consent}} style={s.consentRow}>
         <View style={[s.checkbox, consent && s.checked]}><Text style={s.tick}>{consent ? '✓' : ''}</Text></View>
