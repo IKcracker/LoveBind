@@ -145,8 +145,8 @@ jobs:
         with:
           node-version: "22"
           package-manager-cache: false
-      - name: Audit mobile production dependencies
-        run: npm audit --omit=dev --audit-level=high
+      - name: Audit mobile production dependencies (tracked node-forge upstream exception)
+        run: node .github/scripts/audit-production.cjs
       - name: Audit API production dependencies
         working-directory: server
         run: npm audit --omit=dev --audit-level=high

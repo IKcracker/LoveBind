@@ -28,6 +28,7 @@ function RootNavigator() {
         <Stack.Screen name="moderation" />
         <Stack.Screen name="member-safety" />
         <Stack.Screen name="blocked-members" />
+        <Stack.Screen name="chat/[matchId]" />
       </Stack.Protected>
     </Stack>
   );
