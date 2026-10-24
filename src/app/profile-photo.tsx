@@ -1,6 +1,8 @@
 import { Redirect, router } from 'expo-router';
 import { useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View, ActivityIndicator } from 'react-native';
+import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, View, ActivityIndicator } from 'react-native';
+import { File } from 'expo-file-system';
+import { fetch as expoFetch } from 'expo/fetch';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { BrandLockup, FormButton, FormError, Love, serif } from '@/components/auth-screens';
@@ -21,7 +23,7 @@ export default function ProfilePhotoScreen() {
     if (result.canceled) return;
     const chosen = result.assets[0];
     const kind = chosen.mimeType ?? 'image/jpeg';
-    const bytes = chosen.fileSize;
+    const bytes = chosen.fileSize ?? (Platform.OS !== 'web' ? new File(chosen.uri).size : 0);
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(kind) ||
       !bytes || bytes > 5 * 1024 * 1024) {
       setError('Choose a JPG, PNG or WebP photo under 5 MB.'); return;
@@ -36,12 +38,21 @@ export default function ProfilePhotoScreen() {
       const request = await apiRequest<{uploadUrl:string;key:string;contentType:string}>(
         '/photos/upload-request', 'POST', { contentType: photo.contentType, size: photo.size }, token,
       );
-      const local = await fetch(photo.uri);
-      const blob = await local.blob();
-      if (blob.size !== photo.size) throw new Error('Photo size changed during upload. Please select it again.');
-      const response = await fetch(request.uploadUrl, {
-        method: 'PUT', headers: { 'Content-Type': request.contentType }, body: blob,
-      });
+      let response: Response;
+      if (Platform.OS === 'web') {
+        const local = await fetch(photo.uri);
+        const blob = await local.blob();
+        if (blob.size !== photo.size) throw new Error('Photo size changed. Select it again.');
+        response = await fetch(request.uploadUrl, {
+          method: 'PUT', headers: { 'Content-Type': request.contentType }, body: blob,
+        });
+      } else {
+        const file = new File(photo.uri);
+        if (!file.exists || file.size !== photo.size) throw new Error('Photo file changed. Select it again.');
+        response = await expoFetch(request.uploadUrl, {
+          method: 'PUT', headers: { 'Content-Type': request.contentType }, body: file,
+        }) as Response;
+      }
       if (!response.ok) throw new Error('Photo upload failed. Check your connection and try again.');
       await apiRequest('/photos/confirm', 'POST', { key: request.key }, token);
       await refresh();
