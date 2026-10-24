@@ -11,7 +11,9 @@
     "test": "node --test --require ts-node/register src/modules/compatibility/scoring.test.ts src/modules/auth/auth.validation.test.ts",
     "prisma:generate": "node scripts/prisma-cli.cjs generate",
     "prisma:validate": "node scripts/prisma-cli.cjs validate",
-    "prisma:migrate": "node scripts/prisma-cli.cjs migrate dev"
+    "prisma:migrate": "node scripts/prisma-cli.cjs migrate dev",
+    "prisma:deploy": "node scripts/prisma-cli.cjs migrate deploy",
+    "prisma:status": "node scripts/prisma-cli.cjs migrate status"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
