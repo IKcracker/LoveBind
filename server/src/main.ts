@@ -2,10 +2,14 @@ import 'reflect-metadata';
 import './load-env';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { PrismaService } from './prisma/prisma.service';
+import { bootstrapEnvAdmin } from './modules/auth/admin-bootstrap';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
   app.enableShutdownHooks();
+  await app.init();
+  await bootstrapEnvAdmin(app.get(PrismaService));
   const origins = (process.env.CORS_ORIGINS ?? '').split(',').map(x => x.trim()).filter(Boolean);
   app.enableCors({ origin: origins, credentials: true });
   const port = Number(process.env.PORT ?? 4000);
