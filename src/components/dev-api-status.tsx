@@ -24,7 +24,17 @@ export function DevApiStatus() {
     }
   }, []);
 
-  useEffect(() => { void verify(); }, [verify]);
+  useEffect(() => {
+    void checkApiHealth().then((health) => {
+      setAddress(health.url);
+      setStatus('ready');
+      setMessage('API and registration tables are ready.');
+    }).catch((error: unknown) => {
+      try { setAddress(getApiAddress()); } catch { setAddress('Not configured'); }
+      setStatus('error');
+      setMessage(error instanceof Error ? error.message : 'API check failed.');
+    });
+  }, []);
 
   if (!__DEV__) return null;
   return (
