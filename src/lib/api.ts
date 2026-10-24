@@ -1,6 +1,19 @@
 import { apiConnectionHelp, resolveApiBaseUrl } from './api-url';
 
 export type ApiMethod = 'GET' | 'POST' | 'PUT';
+const providerErrorHelp: Record<string, string> = {
+  DIDIT_REQUEST_REJECTED: 'Didit rejected the verification request. The workflow ID may be invalid or belong to a different application.',
+  DIDIT_KEY_REJECTED: 'Didit rejected the API key. Please check the key in the active Render service.',
+  DIDIT_PERMISSION_DENIED: 'Didit denied access. Please check the application and workflow permissions.',
+  DIDIT_WORKFLOW_NOT_FOUND: 'The configured Didit workflow was not found. Check the workflow ID and application.',
+  DIDIT_INSUFFICIENT_CREDITS: 'Didit may require more credits to start verification.',
+  DIDIT_RATE_LIMIT: 'Too many verification attempts. Please try again later.',
+  DIDIT_UPSTREAM_ERROR: 'Didit is temporarily unavailable. Please try again later.',
+  DIDIT_UNEXPECTED_STATUS: 'Didit rejected this request. Check the backend logs for its HTTP status.',
+  DIDIT_NETWORK_FAILURE: 'LoveBind could not reach Didit. Please try again later.',
+  DIDIT_INVALID_RESPONSE: 'Didit sent an invalid verification link or response. Please contact support.',
+};
+
 export class ApiError extends Error {
   constructor(message: string, readonly status?: number) {
     super(message);
@@ -41,9 +54,15 @@ export async function apiRequest<T>(
       const detail = typeof message === 'string' ? message
         : Array.isArray(message) ? message.filter((x): x is string => typeof x === 'string').join(', ')
         : 'Request failed. Try again.';
-      const friendly = response.status >= 500
-        ? 'The API is reachable, but its server encountered an error. Check the backend logs and database tables.'
-        : detail;
+      // Only surface our own known, safe provider diagnostics; do not pass
+      // arbitrary 5xx or upstream response bodies to the user.
+      const providerCode = typeof obj?.code === 'string' ? obj.code : '';
+      const providerHelp = response.status === 502 && path.startsWith('/verification/')
+        ? providerErrorHelp[providerCode] : undefined;
+      const friendly = providerHelp ??
+        (response.status >= 500
+          ? 'The API encountered a server error. Please try again or check the backend logs.'
+          : detail);
       throw new ApiError(friendly, response.status);
     }
     return payload as T;

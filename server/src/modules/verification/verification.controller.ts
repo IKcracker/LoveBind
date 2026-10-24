@@ -1,6 +1,7 @@
-import { BadGatewayException, BadRequestException, Controller, Get, Post, Req, Body, ServiceUnavailableException, UseGuards } from '@nestjs/common';
+import { BadGatewayException, BadRequestException, Controller, Get, Post, Req, Body, ServiceUnavailableException, UseGuards, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthGuard, AuthenticatedRequest } from '../auth/auth.guard';
+import { fetchDidit, hostedDiditUrl } from './didit-error';
 
 type SessionResponse = { session_id?: string; url?: string; session_url?: string };
 const BASE = 'https://verification.didit.me/v3';
@@ -42,16 +43,22 @@ export class VerificationController {
     if (existing && !['Declined', 'Expired', 'Abandoned', 'Not Started'].includes(existing.status)) {
       throw new BadRequestException('A verification session is already in progress or awaiting review');
     }
-    const response = await fetch(BASE + '/session/', {
+    const response = await fetchDidit(BASE + '/session/', {
       method: 'POST',
       headers: { 'x-api-key': apiKey, 'Content-Type': 'application/json' },
       body: JSON.stringify({ workflow_id: workflowId, vendor_data: request.authUserId }),
       signal: AbortSignal.timeout(15000),
-    }).catch(() => { throw new BadGatewayException('Verification provider unavailable'); });
-    if (!response.ok) throw new BadGatewayException('Unable to start identity verification');
-    const result = await response.json() as SessionResponse;
-    const url = result.url ?? result.session_url;
-    if (!result.session_id || !url || !/^https:\/\//.test(url)) throw new BadGatewayException('Invalid verification session response');
+    }, 'create-session');
+    const result = await response.json().catch(() => null) as SessionResponse | null;
+    const url = hostedDiditUrl(result?.url ?? result?.session_url);
+    if (!result || typeof result.session_id !== 'string' || result.session_id.length < 6 ||
+        result.session_id.length > 160 || !url) {
+      Logger.warn('Didit create-session: malformed successful response (missing session ID or safe hosted URL)', 'Didit');
+      throw new BadGatewayException({
+        code: 'DIDIT_INVALID_RESPONSE',
+        message: 'Didit returned an invalid verification link. Please contact LoveBind support.',
+      });
+    }
     await this.prisma.identityVerification.upsert({
       where: { userId: request.authUserId },
       create: { userId: request.authUserId, providerSessionId: result.session_id, consentAt: new Date() },
@@ -66,11 +73,17 @@ export class VerificationController {
     if (!apiKey) throw new ServiceUnavailableException('Identity verification is not configured yet');
     const item = await this.prisma.identityVerification.findUnique({ where: { userId: request.authUserId } });
     if (!item) return { status: 'Not Started' };
-    const response = await fetch(BASE + '/session/' + encodeURIComponent(item.providerSessionId) + '/decision/', {
+    const response = await fetchDidit(BASE + '/session/' + encodeURIComponent(item.providerSessionId) + '/decision/', {
       headers: { 'x-api-key': apiKey }, signal: AbortSignal.timeout(15000),
-    }).catch(() => { throw new BadGatewayException('Unable to reach verification provider'); });
-    if (!response.ok) throw new BadGatewayException('Could not retrieve verification status');
-    const result = await response.json() as { status?: unknown };
+    }, 'fetch-decision');
+    const result = await response.json().catch(() => null) as { status?: unknown } | null;
+    if (!result || typeof result.status !== 'string') {
+      Logger.warn('Didit fetch-decision: malformed successful response', 'Didit');
+      throw new BadGatewayException({
+        code: 'DIDIT_INVALID_RESPONSE',
+        message: 'The verification status could not be read. Please try again later.',
+      });
+    }
     const known = ['Not Started', 'In Progress', 'In Review', 'Approved', 'Declined', 'Resubmitted', 'Awaiting User', 'Expired', 'Abandoned', 'Kyc Expired'];
     const status = typeof result.status === 'string' && known.includes(result.status) ? result.status : 'In Review';
     await this.prisma.identityVerification.update({ where: { userId: request.authUserId }, data: { status, lastCheckedAt: new Date() } });
