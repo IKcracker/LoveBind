@@ -77,7 +77,7 @@ function WelcomeScreen() {
                   Already a member? <Text style={styles.signInEmphasis}>Sign in</Text>
                 </Text>
               </Pressable>
-              <Text style={styles.disclaimer}>LoveBind is in development. Matching and dates are not yet available.</Text>
+              <Text style={styles.disclaimer}>LoveBind is in private development. Discovery is limited to approved adult members.</Text>
             </View>
           </View>
         </ScrollView>

@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BrandLockup, Love, serif } from '@/components/auth-screens';
 import { useSession } from '@/lib/session';
+import { LoveBindNav } from '@/components/lovebind-nav';
 
 function Shortcut({ title, description, arrow = true, onPress }: {
   title: string; description: string; arrow?: boolean; onPress: () => void;
@@ -33,16 +34,20 @@ export function MemberHome() {
         <View style={s.track}><View style={[s.fill,{width: (steps / 3 * 100) + '%'}]}/></View>
         <Text style={s.progressText}>{steps} of 3 setup steps completed</Text>
       </View>
-      <Text style={s.section}>Continue your journey</Text>
+      <Text style={s.section}>Explore LoveBind</Text>
+      <Shortcut title="Discover people" description="Meet verified members who share your values" onPress={()=>router.push('/explore')}/>
+      <Shortcut title="Your matches" description="See mutual likes and start conversations" onPress={()=>router.push('/matches')}/>
+      <Text style={[s.section,{marginTop:20}]}>Continue your journey</Text>
       <Shortcut title="Your story" description={details ? 'Review your profile and interests' : 'Tell people what makes you, you'} onPress={()=>router.push('/onboarding')}/>
       <Shortcut title="Profile photo" description={hasPhoto ? 'Photo submitted for private review' : 'Add a genuine photo of yourself'} onPress={()=>router.push('/profile-photo')}/>
       <Shortcut title="Verify your identity" description="Continue secure age and identity checks" onPress={()=>router.push('/verification')}/>
       <View style={s.callout}>
         <Text style={s.calloutTitle}>A safer place to connect</Text>
-        <Text style={s.calloutText}>Your profile is private while identity checks and safety moderation are being completed. Discovery and messaging are coming later.</Text>
+        <Text style={s.calloutText}>Your profile is private while identity checks and safety moderation are being completed. Discovery and messaging are in private development. Only approved adult accounts can access other members.</Text>
       </View>
       <Pressable style={s.signout} onPress={()=>{void signOut()}}><Text style={s.signoutText}>Sign out</Text></Pressable>
     </ScrollView>
+    <LoveBindNav active="home"/>
   </SafeAreaView>;
 }
 const s=StyleSheet.create({
