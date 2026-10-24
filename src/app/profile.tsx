@@ -1,4 +1,3 @@
-import { MemberTabBar } from '@/components/member-tab-bar';
 import { Redirect, router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -8,10 +7,10 @@ import { CityPicker } from '@/components/city-picker';
 import { apiRequest } from '@/lib/api';
 import { useSession, type Profile } from '@/lib/session';
 
-type EditorProps = { profile: Profile; token: string; refresh: () => Promise<void>; approved: boolean };
+type EditorProps = { profile: Profile; token: string; refresh: () => Promise<void> };
 function csv(value: string): string[] { return [...new Set(value.split(',').map(v => v.trim()).filter(Boolean))]; }
 
-function ProfileEditor({ profile, token, refresh, approved }: EditorProps) {
+function ProfileEditor({ profile, token, refresh }: EditorProps) {
   const [name, setName] = useState(profile.displayName);
   const [city, setCity] = useState(profile.city ?? '');
   const [cityPlaceId, setCityPlaceId] = useState(profile.cityPlaceId ?? null);
@@ -52,7 +51,7 @@ function ProfileEditor({ profile, token, refresh, approved }: EditorProps) {
   return <SafeAreaView style={s.safe}><View style={{flex:1}}><ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
     <View style={s.header}>
       <BrandLockup/>
-      <Pressable onPress={() => router.replace('/')} accessibilityRole="button" hitSlop={10}>
+      <Pressable onPress={() => router.replace('/(member)/discover')} accessibilityRole="button" hitSlop={10}>
         <Text style={s.done}>Done</Text>
       </Pressable>
     </View>
@@ -82,14 +81,14 @@ function ProfileEditor({ profile, token, refresh, approved }: EditorProps) {
     <Pressable style={s.verifyLink} onPress={() => router.push('/verification')} accessibilityRole="button">
       <Text style={s.verifyText}>Continue identity verification →</Text>
     </Pressable>
-  </ScrollView><MemberTabBar active="profile" approved={approved}/></View></SafeAreaView>;
+  </ScrollView></View></SafeAreaView>;
 }
 export default function ProfileScreen() {
   const { loading, user, token, refresh } = useSession();
   if (loading) return <View style={s.loading}><ActivityIndicator color={Love.wine}/></View>;
   if (!user || !token) return <Redirect href="/login"/>;
   if (!user.profile) return <Redirect href="/onboarding"/>;
-  return <ProfileEditor key={user.id} profile={user.profile} token={token} refresh={refresh} approved={user.status === 'ACTIVE'}/>;
+  return <ProfileEditor key={user.id} profile={user.profile} token={token} refresh={refresh}/>;
 }
 const s=StyleSheet.create({
   safe:{flex:1,backgroundColor:Love.paper},
