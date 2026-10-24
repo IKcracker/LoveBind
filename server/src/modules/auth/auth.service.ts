@@ -49,7 +49,7 @@ export class AuthService {
 
   async login(input: unknown) {
     const { email, password } = parseLogin(input);
-    const credential = await this.prisma.credential.findUnique({
+    const credential = await this.prisma.emailCredential.findUnique({
       where: { email }, include: { user: { select: { id: true, status: true } } },
     });
     // Use identical public errors whether email exists or password is wrong.
