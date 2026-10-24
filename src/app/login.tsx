@@ -79,7 +79,7 @@ export default function LoginScreen() {
       <View style={authStyles.reassurance}>
         <Text style={authStyles.reassuranceIcon}>✧</Text>
         <Text style={authStyles.reassuranceText}>
-          Your account and conversations are yours. We won't show your profile in discovery until verification is available.
+          Your account and conversations are yours. We keep your profile out of discovery until verification is available.
         </Text>
       </View>
       <Text style={styles.support}>

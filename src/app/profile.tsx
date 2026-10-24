@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Redirect } from 'expo-router';
 import { ActivityIndicator, View } from 'react-native';
 import { ActionButton, Brand, ErrorMessage, Field, Heading, InfoCard, Page, Palette } from '@/components/lovebind-ui';
@@ -8,19 +8,13 @@ import { useSession } from '@/lib/session';
 export default function ProfileScreen() {
   const { loading, user, token, refresh } = useSession();
   const profile = user?.profile;
-  const [name, setName] = useState('');
-  const [city, setCity] = useState('');
-  const [bio, setBio] = useState('');
-  const [goal, setGoal] = useState('');
+  const [name, setName] = useState(profile?.displayName ?? '');
+  const [city, setCity] = useState(profile?.city ?? '');
+  const [bio, setBio] = useState(profile?.bio ?? '');
+  const [goal, setGoal] = useState(profile?.relationshipGoal ?? '');
   const [busy, setBusy] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    setName(profile?.displayName ?? '');
-    setCity(profile?.city ?? '');
-    setBio(profile?.bio ?? '');
-    setGoal(profile?.relationshipGoal ?? '');
-  }, [profile?.displayName, profile?.city, profile?.bio, profile?.relationshipGoal]);
   if (loading) return <View style={{ flex: 1, justifyContent: 'center' }}><ActivityIndicator color={Palette.rose} /></View>;
   if (!user || !token) return <Redirect href="/login" />;
 

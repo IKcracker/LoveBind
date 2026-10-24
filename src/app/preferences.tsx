@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Redirect } from 'expo-router';
 import { ActivityIndicator, View } from 'react-native';
 import { ActionButton, Brand, ChoiceChip, ErrorMessage, Field, Heading, InfoCard, Page, Palette } from '@/components/lovebind-ui';
@@ -10,20 +10,13 @@ const GOALS = ['Long-term relationship', 'Marriage-minded', 'Getting to know som
 export default function PreferencesScreen() {
   const { loading, user, token, refresh } = useSession();
   const preferences = user?.preferences;
-  const [minAge, setMinAge] = useState('23');
-  const [maxAge, setMaxAge] = useState('35');
-  const [cities, setCities] = useState('');
-  const [goals, setGoals] = useState<string[]>([]);
+  const [minAge, setMinAge] = useState(String(preferences?.minAge ?? 23));
+  const [maxAge, setMaxAge] = useState(String(preferences?.maxAge ?? 35));
+  const [cities, setCities] = useState(preferences?.preferredCities.join(', ') ?? '');
+  const [goals, setGoals] = useState<string[]>(preferences?.relationshipGoals ?? []);
   const [busy, setBusy] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    if (!preferences) return;
-    setMinAge(String(preferences.minAge));
-    setMaxAge(String(preferences.maxAge));
-    setCities(preferences.preferredCities.join(', '));
-    setGoals(preferences.relationshipGoals);
-  }, [preferences?.minAge, preferences?.maxAge, preferences?.preferredCities?.join('|'), preferences?.relationshipGoals?.join('|')]);
 
   if (loading) return <View style={{ flex: 1, justifyContent: 'center' }}><ActivityIndicator color={Palette.rose} /></View>;
   if (!user || !token) return <Redirect href="/login" />;
