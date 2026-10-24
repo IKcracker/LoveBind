@@ -17,6 +17,11 @@ export const Love = {
   line: '#DED9D5',
   error: '#A63747',
   errorBg: '#FBF0F0',
+  wineSoft: '#F5ECEF',
+  sand: '#EEE6E1',
+  success: '#256544',
+  successBg: '#E7F2EA',
+  infoBg: '#FAF0E7',
 };
 export const serif = Platform.select({ ios: 'Georgia', android: 'serif', web: 'Georgia', default: 'serif' });
 

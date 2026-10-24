@@ -2,8 +2,8 @@ import { Redirect, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useWindowDimensions, ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MemberHome } from '@/components/member-home';
 import { BrandLockup, Love, serif } from '@/components/auth-screens';
+import { profileComplete } from '@/lib/account';
 import { useSession } from '@/lib/session';
 
 /**
@@ -77,7 +77,7 @@ function WelcomeScreen() {
                   Already a member? <Text style={styles.signInEmphasis}>Sign in</Text>
                 </Text>
               </Pressable>
-              <Text style={styles.disclaimer}>LoveBind is in development. Matching and dates are not yet available.</Text>
+              <Text style={styles.disclaimer}>18+ only. Every member is identity and age verified before they can be discovered.</Text>
             </View>
           </View>
         </ScrollView>
@@ -86,6 +86,7 @@ function WelcomeScreen() {
   );
 }
 
+/** Single entry gate: welcome for visitors, onboarding until the profile is complete, then the member tabs. */
 export default function Index() {
   const { user, loading } = useSession();
   if (loading) return (
@@ -94,8 +95,8 @@ export default function Index() {
     </View>
   );
   if (!user) return <WelcomeScreen />;
-  if (!user.profile?.city || !user.profile?.relationshipGoal || !user.profile?.bio) return <Redirect href="/onboarding" />;
-  return <MemberHome />;
+  if (!profileComplete(user.profile)) return <Redirect href="/onboarding" />;
+  return <Redirect href="/home" />;
 }
 
 const styles = StyleSheet.create({

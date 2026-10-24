@@ -1,8 +1,9 @@
-import { Redirect, router } from 'expo-router';
+import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BrandLockup, FormButton, FormError, Love, serif } from '@/components/auth-screens';
+import { StackScreen, StatusPill } from '@/components/member-ui';
 import { ApiError, apiRequest } from '@/lib/api';
 import { useSession } from '@/lib/session';
 
@@ -10,6 +11,7 @@ type VerificationState = { status: string; ageEvidenceStatus?: string; accountAc
 
 function friendlyError(error: unknown): string {
   if (error instanceof ApiError) {
+    if (!__DEV__ && (error.status === 503 || error.status === 404)) return 'Identity verification is temporarily unavailable. Please try again a little later.';
     if (error.status === 503) return 'Didit has not been configured on the server handling this request. Check DIDIT_API_KEY and DIDIT_WORKFLOW_ID in the active Render service, then redeploy.';
     if (error.status === 502) return 'Our identity-verification provider could not complete the request. Please try again later.';
     if (error.status === 404) return 'This backend does not have the verification endpoint yet. Please deploy the updated LoveBind API.';
@@ -21,6 +23,8 @@ function friendlyError(error: unknown): string {
 
 export default function Verification() {
   const { loading, user, token, signOut, refresh } = useSession();
+  const { flow } = useLocalSearchParams<{ flow?: string }>();
+  const onboarding = flow === 'onboarding';
   const [consent, setConsent] = useState(false);
   const [status, setStatus] = useState('Not Started');
   const [ageStatus, setAgeStatus] = useState('PENDING');
@@ -66,38 +70,50 @@ export default function Verification() {
   const photoStatus = user.profile?.photoReviewStatus;
   const hasPhoto = photoStatus && photoStatus !== 'NONE';
 
-  return <SafeAreaView style={s.safe}><ScrollView contentContainerStyle={s.body}>
-    <BrandLockup/>
-    <View style={s.progress}><View style={s.active}/><View style={s.active}/><View style={s.active}/></View>
-    <Text style={s.overline}>03 / 03 · TRUST & SAFETY</Text>
-    <Text style={s.head}>{status === 'Approved' ? 'Identity confirmed.' : 'The real you, safely.'}</Text>
-    <Text style={s.description}>Verify your identity with our partner Didit. Your ID document and selfie are submitted directly to the verification provider, not to LoveBind.</Text>
+  const approved = status === 'Approved' && ageStatus === 'VERIFIED';
+  const cards = <>
     <View style={s.card}>
-      <Text style={s.cardTitle}>Identity verification</Text>
+      <View style={s.cardHeader}>
+        <Text style={s.cardTitle}>Identity verification</Text>
+        <StatusPill tone={approved ? 'success' : status === 'Not Started' ? 'muted' : 'pending'} label={approved ? 'VERIFIED' : status.toUpperCase()} />
+      </View>
       <Text style={s.cardText}>Didit will guide you through an ID document check and a selfie/liveness check. Return here afterward to check your status.</Text>
-      <Text style={s.status}>Status: {status}</Text>
-      {status === 'Approved' ? <Text style={s.success}>Identity check approved by Didit.</Text> : null}
       {status === 'Approved' && ageStatus !== 'VERIFIED' ? <Text style={s.info}>Your age evidence still needs confirmation before account activation. Use Check verification status to synchronize your ID details.</Text> : null}
-      {status === 'Approved' && ageStatus === 'VERIFIED' ? <Text style={s.success}>Adult age confirmed from your identity document.</Text> : null}
+      {approved ? <Text style={s.success}>Identity approved and adult age confirmed from your document.</Text> : null}
       {status !== 'Approved' ? <Pressable onPress={() => setConsent(!consent)} accessibilityRole="checkbox" accessibilityState={{checked:consent}} style={s.consentRow}>
         <View style={[s.checkbox, consent && s.checked]}><Text style={s.tick}>{consent ? '✓' : ''}</Text></View>
         <Text style={s.consentText}>I consent to Didit processing my identity document and selfie for verification. I can stop before submitting.</Text>
       </Pressable> : null}
       {status === 'Not Started' || status === 'Declined' || status === 'Expired' || status === 'Abandoned' ?
         <FormButton text="Start secure verification" disabled={!consent} busy={busy} onPress={() => { void start(); }} /> : null}
-      <FormButton text="Check verification status" secondary busy={busy} onPress={() => { void check(); }} />
+      {!approved ? <FormButton text="Check verification status" secondary busy={busy} onPress={() => { void check(); }} /> : null}
     </View>
-    <View style={s.card}>
+    {onboarding ? <View style={s.card}>
       <Text style={s.cardTitle}>Your profile photo</Text>
       <Text style={s.cardText}>{hasPhoto
         ? photoStatus === 'APPROVED'
-          ? 'Your profile photo has passed review. Your profile remains private until account verification is complete.'
-          : 'Your profile photo was saved privately. Review status: ' + photoStatus + '.'
-        : 'Add a clear, recent photo of yourself. Your photo will remain private until safety review is complete.'}</Text>
+          ? 'Your profile photo has passed review.'
+          : 'Your profile photo was saved privately and is awaiting review.'
+        : 'Add a clear, recent photo of yourself. It stays private until safety review is complete.'}</Text>
       <FormButton text={hasPhoto ? 'View or change photo' : 'Add profile photo'} secondary onPress={() => router.push('/profile-photo')}/>
-    </View>
+    </View> : null}
     <FormError message={error}/>
-    <FormButton text="View my profile" secondary onPress={() => router.replace('/profile')}/>
+  </>;
+
+  if (!onboarding) return <StackScreen title="Verification">
+    <Text style={s.description}>Your ID document and selfie go directly to our verification partner Didit, never to LoveBind.</Text>
+    {cards}
+  </StackScreen>;
+
+  return <SafeAreaView style={s.safe}><ScrollView contentContainerStyle={s.body}>
+    <BrandLockup/>
+    <View style={s.progress}><View style={s.active}/><View style={s.active}/><View style={s.active}/></View>
+    <Text style={s.overline}>03 / 03 · TRUST & SAFETY</Text>
+    <Text style={s.head}>{approved ? 'Identity confirmed.' : 'The real you, safely.'}</Text>
+    <Text style={s.description}>Verify your identity with our partner Didit. Your ID document and selfie are submitted directly to the verification provider, not to LoveBind.</Text>
+    {cards}
+    <FormButton text="Continue to LoveBind" secondary={!approved} onPress={() => router.replace('/home')}/>
+    {!approved ? <Text style={s.later}>You can finish verifying later from your Home checklist.</Text> : null}
     <Pressable onPress={() => { void signOut(); }} style={s.signout}><Text style={s.signoutText}>Sign out</Text></Pressable>
   </ScrollView></SafeAreaView>;
 }
@@ -109,9 +125,10 @@ const s=StyleSheet.create({
   head:{fontFamily:serif,color:Love.ink,fontSize:42,lineHeight:48},
   description:{color:Love.muted,fontSize:15,lineHeight:23},
   card:{backgroundColor:Love.white,padding:20,borderWidth:1,borderColor:Love.line,borderRadius:12,gap:16},
+  cardHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap'},
   cardTitle:{color:Love.ink,fontSize:18,fontWeight:'700'},
+  later:{color:Love.muted,fontSize:12,textAlign:'center',marginTop:-8},
   cardText:{color:Love.muted,fontSize:14,lineHeight:21},
-  status:{color:Love.wine,fontWeight:'700',fontSize:13},
   success:{backgroundColor:'#E7F2EA',color:'#256544',fontSize:13,lineHeight:21,padding:12,borderRadius:9},
   info:{backgroundColor:'#FAF0E7',color:Love.wine,fontSize:13,lineHeight:21,padding:12,borderRadius:9},
   consentRow:{flexDirection:'row',gap:12,alignItems:'center'},

@@ -1,28 +1,51 @@
-import { Tabs } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
-import { Love } from '@/components/auth-screens';
-import { useSession } from '@/lib/session';
 import { Redirect } from 'expo-router';
+import { Tabs } from 'expo-router/js-tabs';
+import type { ColorValue } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Love } from '@/components/auth-screens';
+import { Icon, type IconName } from '@/components/icon';
+import { LoadingScreen } from '@/components/member-ui';
+import { profileComplete } from '@/lib/account';
+import { useSession } from '@/lib/session';
 
-const icon = (ios:string, android:string, color:string) => (
-  <SymbolView name={{ios,android,web:android}} size={23} tintColor={color} />
-);
+function tabIcon(outline: IconName, filled: IconName) {
+  function TabIcon({ color, focused }: { color: ColorValue; focused: boolean }) {
+    return <Icon name={focused ? filled : outline} size={24} color={color} />;
+  }
+  return TabIcon;
+}
+const HomeIcon = tabIcon('home', 'homeFill');
+const DiscoverIcon = tabIcon('discover', 'discoverFill');
+const LikesIcon = tabIcon('heart', 'heartFill');
+const MatchesIcon = tabIcon('chat', 'chatFill');
+const ProfileIcon = tabIcon('person', 'personFill');
 
+/**
+ * The member app shell. Every signed-in member with a complete profile sees the
+ * same tabs; Discover, Likes and Matches show a locked state until the account
+ * is approved, so navigation never changes shape after verification.
+ */
 export default function MemberTabs() {
-  const {user,loading}=useSession();
-  if (!loading && !user) return <Redirect href="/login"/>;
-  if (!loading && user?.status!=='ACTIVE') return <Redirect href="/"/>;
-  return <Tabs screenOptions={{
-    headerShown:false,
-    tabBarActiveTintColor:Love.wine,
-    tabBarInactiveTintColor:Love.muted,
-    tabBarStyle:{backgroundColor:Love.white,borderTopColor:Love.line,height:60,paddingTop:7},
-    tabBarLabelStyle:{fontSize:11,fontWeight:'700'},
-    sceneStyle:{backgroundColor:Love.paper},
-  }}>
-    <Tabs.Screen name="discover" options={{title:'Discover',tabBarIcon:({color})=>icon('safari','explore',color)}}/>
-    <Tabs.Screen name="likes" options={{title:'Likes',tabBarIcon:({color})=>icon('heart','favorite',color)}}/>
-    <Tabs.Screen name="connections" options={{title:'Matches',tabBarIcon:({color})=>icon('bubble.left.and.bubble.right','chat',color)}}/>
-    <Tabs.Screen name="profile" options={{title:'Profile',tabBarIcon:({color})=>icon('person.crop.circle','person',color)}}/>
-  </Tabs>;
+  const { user, loading } = useSession();
+  const insets = useSafeAreaInsets();
+  if (loading) return <LoadingScreen />;
+  if (!user) return <Redirect href="/" />;
+  if (!profileComplete(user.profile)) return <Redirect href="/onboarding" />;
+  return (
+    <Tabs screenOptions={{
+      headerShown: false,
+      tabBarActiveTintColor: Love.wine,
+      tabBarInactiveTintColor: Love.mutedSoft,
+      // Height must include the bottom inset; a fixed height pushes items into the home indicator.
+      tabBarStyle: { backgroundColor: Love.white, borderTopColor: Love.line, height: 58 + insets.bottom, paddingTop: 6 },
+      tabBarLabelStyle: { fontSize: 11, lineHeight: 14, fontWeight: '700' },
+      sceneStyle: { backgroundColor: Love.paper },
+    }}>
+      <Tabs.Screen name="home" options={{ title: 'Home', tabBarIcon: HomeIcon }} />
+      <Tabs.Screen name="discover" options={{ title: 'Discover', tabBarIcon: DiscoverIcon }} />
+      <Tabs.Screen name="likes" options={{ title: 'Likes', tabBarIcon: LikesIcon }} />
+      <Tabs.Screen name="matches" options={{ title: 'Matches', tabBarIcon: MatchesIcon }} />
+      <Tabs.Screen name="profile" options={{ title: 'Profile', tabBarIcon: ProfileIcon }} />
+    </Tabs>
+  );
 }

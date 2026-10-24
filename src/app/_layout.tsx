@@ -1,29 +1,40 @@
 import { Stack } from 'expo-router';
-import { SessionProvider } from '@/lib/session';
-import { Palette } from '@/components/lovebind-ui';
+import { Love } from '@/components/auth-screens';
+import { SessionProvider, useSession } from '@/lib/session';
+
+/**
+ * Signed-out visitors can reach the welcome, login and register screens.
+ * Signed-in members get the tab shell `(member)` plus screens pushed over it.
+ * When the session changes, guarded screens are dropped and the router falls
+ * back to `index`, which decides where the member belongs.
+ */
+function RootNavigator() {
+  const { user } = useSession();
+  const signedIn = !!user;
+  return (
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Love.paper } }}>
+      <Stack.Screen name="index" />
+      <Stack.Protected guard={!signedIn}>
+        <Stack.Screen name="login" />
+        <Stack.Screen name="register" />
+      </Stack.Protected>
+      <Stack.Protected guard={signedIn}>
+        <Stack.Screen name="(member)" options={{ animation: 'fade' }} />
+        <Stack.Screen name="onboarding" options={{ gestureEnabled: false }} />
+        <Stack.Screen name="profile-photo" />
+        <Stack.Screen name="verification" />
+        <Stack.Screen name="edit-profile" />
+        <Stack.Screen name="preferences" />
+        <Stack.Screen name="moderation" />
+      </Stack.Protected>
+    </Stack>
+  );
+}
 
 export default function RootLayout() {
   return (
     <SessionProvider>
-      <Stack screenOptions={{
-        headerStyle: { backgroundColor: Palette.background },
-        headerTintColor: Palette.plum,
-        headerShadowVisible: false,
-        contentStyle: { backgroundColor: Palette.background },
-      }}>
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="(member)" options={{ headerShown: false }} />
-        <Stack.Screen name="login" options={{ headerShown: false }} />
-        <Stack.Screen name="register" options={{ headerShown: false }} />
-        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-        <Stack.Screen name="profile-photo" options={{ headerShown: false }} />
-        <Stack.Screen name="verification" options={{ headerShown: false }} />
-        <Stack.Screen name="profile" options={{ title: 'My profile' }} />
-        <Stack.Screen name="discover" options={{ headerShown: false }} />
-        <Stack.Screen name="connections" options={{ headerShown: false }} />
-        <Stack.Screen name="moderation" options={{ headerShown: false }} />
-        <Stack.Screen name="preferences" options={{ title: 'Partner preferences' }} />
-      </Stack>
+      <RootNavigator />
     </SessionProvider>
   );
 }

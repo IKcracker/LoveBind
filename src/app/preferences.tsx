@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Redirect } from 'expo-router';
-import { ActivityIndicator, View } from 'react-native';
-import { ActionButton, Brand, ChoiceChip, ErrorMessage, Field, Heading, InfoCard, Page, Palette } from '@/components/lovebind-ui';
+import { StyleSheet, Text, View } from 'react-native';
+import { AuthField, FormButton, FormError, Love } from '@/components/auth-screens';
+import { GoalChip } from '@/components/goal-picker';
+import { LoadingScreen, Notice, SectionLabel, StackScreen } from '@/components/member-ui';
+import { RELATIONSHIP_GOALS } from '@/lib/account';
 import { apiRequest } from '@/lib/api';
 import { useSession, type Preferences } from '@/lib/session';
-
-const GOALS = ['Long-term relationship', 'Marriage-minded', 'Getting to know someone', 'Not sure yet'];
 
 function PreferencesEditor({ preferences, token, refresh }: {
   preferences: Preferences | null;
@@ -45,29 +46,41 @@ function PreferencesEditor({ preferences, token, refresh }: {
       setBusy(false);
     }
   }
-  return <Page>
-    <Brand caption="Find alignment, not perfection" />
-    <Heading title="Your ideal connection" subtitle="Tell LoveBind what matters to you. Mutual compatibility will later use both people's preferences and quiz answers." />
-    <Field label="Minimum age" value={minAge} onChangeText={setMinAge} keyboardType="number-pad" maxLength={3} />
-    <Field label="Maximum age" value={maxAge} onChangeText={setMaxAge} keyboardType="number-pad" maxLength={3} />
-    <Field label="Preferred cities" value={cities} onChangeText={setCities} placeholder="Johannesburg, Pretoria" hint="Separate several locations with commas. Leave blank if flexible." />
-    <Heading title="Relationship goals" subtitle="Choose the goals you would be comfortable exploring." />
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9 }}>
-      {GOALS.map((goal) => <ChoiceChip
-        key={goal} title={goal} chosen={goals.includes(goal)}
+  const options = [...RELATIONSHIP_GOALS, ...goals.filter(goal => !RELATIONSHIP_GOALS.includes(goal))];
+  return <StackScreen title="Partner preferences">
+    <Text style={styles.intro}>Discover only shows people who fit your preferences, and whose preferences you fit too.</Text>
+    <SectionLabel>Age range</SectionLabel>
+    <View style={styles.row}>
+      <View style={styles.half}><AuthField label="From" value={minAge} onChangeText={setMinAge} keyboardType="number-pad" maxLength={3} /></View>
+      <View style={styles.half}><AuthField label="To" value={maxAge} onChangeText={setMaxAge} keyboardType="number-pad" maxLength={3} /></View>
+    </View>
+    <SectionLabel>Location</SectionLabel>
+    <AuthField label="Preferred cities" value={cities} onChangeText={setCities} placeholder="Johannesburg, Pretoria" helper="Separate several cities with commas. Leave blank if you're flexible." />
+    <SectionLabel>Relationship goals</SectionLabel>
+    <Text style={styles.help}>Choose any you’d be open to. Leave all unselected to see every goal.</Text>
+    <View style={styles.chips}>
+      {options.map((goal) => <GoalChip
+        key={goal} label={goal} selected={goals.includes(goal)}
         onPress={() => setGoals((current) => current.includes(goal) ? current.filter((g) => g !== goal) : [...current, goal])}
       />)}
     </View>
-    <InfoCard title="Beyond preferences">When both people are ready, our upcoming compatibility quiz will explore values, communication, and relationship expectations with AI-assisted explanations.</InfoCard>
-    {success ? <InfoCard title="Saved">Your preferences are up to date.</InfoCard> : null}
-    <ErrorMessage message={error} />
-    <ActionButton title="Save preferences" busy={busy} onPress={() => { void save(); }} />
-  </Page>;
+    <Notice tone="success" message={success ? 'Your preferences are up to date.' : null} />
+    <FormError message={error} />
+    <FormButton text="Save preferences" busy={busy} onPress={() => { void save(); }} />
+  </StackScreen>;
 }
 
 export default function PreferencesScreen() {
   const { loading, user, token, refresh } = useSession();
-  if (loading) return <View style={{ flex: 1, justifyContent: 'center' }}><ActivityIndicator color={Palette.rose} /></View>;
+  if (loading) return <LoadingScreen />;
   if (!user || !token) return <Redirect href="/login" />;
   return <PreferencesEditor key={user.id} preferences={user.preferences} token={token} refresh={refresh} />;
 }
+
+const styles = StyleSheet.create({
+  intro: { fontSize: 14, lineHeight: 22, color: Love.muted },
+  help: { fontSize: 13, lineHeight: 20, color: Love.muted, marginTop: -8 },
+  row: { flexDirection: 'row', gap: 12 },
+  half: { flex: 1 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
+});

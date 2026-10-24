@@ -1,10 +1,11 @@
 import { Redirect, router } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, ScrollView, Text, View, StyleSheet } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthField, BrandLockup, FormButton, FormError, Love, serif } from '@/components/auth-screens';
 import { useSession } from '@/lib/session';
 import { CityPicker } from '@/components/city-picker';
+import { GoalPicker } from '@/components/goal-picker';
 import { apiRequest } from '@/lib/api';
 
 function split(value: string): string[] {
@@ -12,7 +13,7 @@ function split(value: string): string[] {
 }
 
 export default function Onboarding() {
-  const { user, token, refresh, loading } = useSession();
+  const { user, token, refresh, loading, signOut } = useSession();
   const [city, setCity] = useState(user?.profile?.city ?? '');
   const [cityPlaceId, setCityPlaceId] = useState(user?.profile?.cityPlaceId ?? null);
   const [bio, setBio] = useState(user?.profile?.bio ?? '');
@@ -27,7 +28,7 @@ export default function Onboarding() {
     if (!token || busy) return;
     if (!cityPlaceId && city !== user?.profile?.city) { setError('Select a city from suggestions.'); return; }
     if (city.trim().length < 2 || bio.trim().length < 30 || goal.trim().length < 3) {
-      setError('Enter your city, relationship intention and at least 30 characters about yourself.');
+      setError('Choose your city and what you are looking for, and write at least 30 characters about yourself.');
       return;
     }
     const interestList = split(interests), valueList = split(values);
@@ -42,7 +43,7 @@ export default function Onboarding() {
         city, cityPlaceId, bio, relationshipGoal: goal, occupation, interests: interestList, coreValues: valueList,
       }, token);
       await refresh();
-      router.replace('/profile-photo');
+      router.replace({ pathname: '/profile-photo', params: { flow: 'onboarding' } });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save your profile');
     } finally { setBusy(false); }
@@ -58,13 +59,17 @@ export default function Onboarding() {
       <Text style={styles.head}>A little about you.</Text>
       <Text style={styles.description}>Real connections start with knowing who you are. Your profile stays private while verification is pending.</Text>
       <CityPicker token={token} city={city} placeId={cityPlaceId} onSelect={(name,id)=>{setCity(name);setCityPlaceId(id);}} />
-      <AuthField label="Relationship intention" value={goal} onChangeText={setGoal} placeholder="Something long term" maxLength={80} />
+      <Text style={styles.label}>What are you looking for?</Text>
+      <GoalPicker value={goal} onChange={setGoal} />
       <AuthField label="Occupation (optional)" value={occupation} onChangeText={setOccupation} placeholder="What keeps you busy?" maxLength={100} />
       <AuthField label="Interests" value={interests} onChangeText={setInterests} placeholder="Art, hiking, cooking" helper="Separate each interest with a comma." maxLength={295} />
       <AuthField label="What matters to you?" value={values} onChangeText={setValues} placeholder="Kindness, family, honesty" helper="Add a few personal values, separated by commas." maxLength={295} />
       <AuthField label="Introduce yourself" value={bio} onChangeText={setBio} placeholder="Your passions, personality and values…" multiline maxLength={1000} style={styles.bio} />
       <FormError message={error} />
       <FormButton text="Save and add photo" busy={busy} onPress={() => { void submit(); }} />
+      <Pressable onPress={() => { void signOut(); }} style={styles.signout} accessibilityRole="button">
+        <Text style={styles.signoutText}>Sign out</Text>
+      </Pressable>
     </ScrollView>
   </SafeAreaView>;
 }
@@ -79,4 +84,7 @@ const styles = StyleSheet.create({
   head: { fontFamily: serif, fontSize: 42, color: Love.ink },
   description: { fontSize: 15, lineHeight: 23, color: Love.muted, marginBottom: 10 },
   bio: { minHeight: 140, textAlignVertical: 'top' },
+  label: { fontSize: 13, fontWeight: '600', color: Love.ink, marginBottom: -10 },
+  signout: { padding: 12, alignItems: 'center' },
+  signoutText: { color: Love.muted, textDecorationLine: 'underline' },
 });

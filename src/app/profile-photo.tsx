@@ -1,4 +1,4 @@
-import { Redirect, router } from 'expo-router';
+import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, View, ActivityIndicator } from 'react-native';
 import { File } from 'expo-file-system';
@@ -6,12 +6,15 @@ import { fetch as expoFetch } from 'expo/fetch';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { BrandLockup, FormButton, FormError, Love, serif } from '@/components/auth-screens';
+import { Notice, StackScreen } from '@/components/member-ui';
 import { useSession } from '@/lib/session';
 import { apiRequest } from '@/lib/api';
 
 type Photo = { uri: string; contentType: string; size: number };
 export default function ProfilePhotoScreen() {
   const { loading, user, token, refresh } = useSession();
+  const { flow } = useLocalSearchParams<{ flow?: string }>();
+  const onboarding = flow === 'onboarding';
   const [photo, setPhoto] = useState<Photo | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,18 +59,16 @@ export default function ProfilePhotoScreen() {
       if (!response.ok) throw new Error('Photo upload failed. Check your connection and try again.');
       await apiRequest('/photos/confirm', 'POST', { key: request.key }, token);
       await refresh();
-      router.replace('/verification');
+      if (onboarding) router.replace({ pathname: '/verification', params: { flow: 'onboarding' } });
+      else if (router.canGoBack()) router.back();
+      else router.replace('/profile');
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not save photo'); }
     finally { setBusy(false); }
   }
   if (loading) return <View style={s.loading}><ActivityIndicator color={Love.wine}/></View>;
   if (!user || !token) return <Redirect href="/login"/>;
-  return <SafeAreaView style={s.safe}><ScrollView contentContainerStyle={s.body}>
-    <BrandLockup/>
-    <View style={s.progress}><View style={s.active}/><View style={s.active}/><View style={s.track}/></View>
-    <Text style={s.eyebrow}>02 / 03 · FIRST IMPRESSIONS</Text>
-    <Text style={s.title}>Show the real you.</Text>
-    <Text style={s.subtitle}>A genuine, recent photograph helps you feel more familiar before the first conversation.</Text>
+  const status = user.profile?.photoReviewStatus;
+  const picker = <>
     <Pressable onPress={() => {void choose()}} style={s.photoFrame} accessibilityRole="button" accessibilityLabel="Choose a profile photograph">
       {photo ? <Image source={{uri:photo.uri}} style={s.photo} resizeMode="cover"/> :
       <View style={s.placeholder}><Text style={s.plus}>+</Text><Text style={s.placeholderText}>Add your photograph</Text><Text style={s.hint}>Tap to browse your photos</Text></View>}
@@ -76,7 +77,24 @@ export default function ProfilePhotoScreen() {
     <FormError message={error}/>
     {photo ? <FormButton text="Upload photo securely" busy={busy} onPress={() => {void upload()}}/> :
       <FormButton text="Choose photo" onPress={() => {void choose()}}/>}
-    <Pressable onPress={() => router.push('/verification')} style={s.skip}><Text style={s.skipText}>Continue without a photo →</Text></Pressable>
+  </>;
+
+  if (!onboarding) return <StackScreen title="Profile photo">
+    <Text style={s.subtitle}>A genuine, recent photograph helps people feel at ease before the first conversation. New photos are reviewed before they are shown.</Text>
+    <Notice tone={status === 'APPROVED' ? 'success' : status === 'REJECTED' ? 'error' : 'info'}
+      message={status === 'APPROVED' ? 'Your current photo is approved.' : status === 'PENDING' ? 'Your current photo is awaiting review.'
+        : status === 'REJECTED' ? 'Your last photo was not approved. Please choose a new one.' : null} />
+    {picker}
+  </StackScreen>;
+
+  return <SafeAreaView style={s.safe}><ScrollView contentContainerStyle={s.body}>
+    <BrandLockup/>
+    <View style={s.progress}><View style={s.active}/><View style={s.active}/><View style={s.track}/></View>
+    <Text style={s.eyebrow}>02 / 03 · FIRST IMPRESSIONS</Text>
+    <Text style={s.title}>Show the real you.</Text>
+    <Text style={s.subtitle}>A genuine, recent photograph helps you feel more familiar before the first conversation.</Text>
+    {picker}
+    <Pressable onPress={() => router.replace({ pathname: '/verification', params: { flow: 'onboarding' } })} style={s.skip}><Text style={s.skipText}>Skip for now →</Text></Pressable>
   </ScrollView></SafeAreaView>;
 }
 const s=StyleSheet.create({

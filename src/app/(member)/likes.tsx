@@ -1,83 +1,80 @@
-import { Redirect, router } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { BrandLockup, Love, serif } from '@/components/auth-screens';
+import { router } from 'expo-router';
+import { useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Love } from '@/components/auth-screens';
+import { Avatar, Card, EmptyState, LockedState, Notice, PageTitle, TabScreen } from '@/components/member-ui';
+import { useApiQuery } from '@/hooks/use-api-query';
 import { apiRequest } from '@/lib/api';
 import { useSession } from '@/lib/session';
-type Like={id:string;name:string;city:string|null;age:number;relationshipGoal:string|null;receivedAt:string};
-export default function Likes(){
- const {user,token,loading}=useSession();
- const [likes,setLikes]=useState<Like[]>([]);
- const [busy,setBusy]=useState(false);
- const [error,setError]=useState('');
- const [notice,setNotice]=useState('');
- useEffect(()=>{
-   if(!token)return;
-   let active=true;
-   apiRequest<{likes:Like[]}>('/discovery/likes','GET',undefined,token)
-     .then(x=>{if(active)setLikes(x.likes)})
-     .catch(e=>{if(active)setError(e instanceof Error?e.message:'Unable to load likes')});
-   return()=>{active=false};
- },[token]);
- async function respond(id:string){
-   if(!token||busy)return;
-   setBusy(true);setError('');
-   try{
-     const result=await apiRequest<{matched:boolean}>('/discovery/'+encodeURIComponent(id)+'/like','POST',{},token);
-     setLikes(current=>current.filter(x=>x.id!==id));
-     if(result.matched)setNotice('It is mutual! Your new match is in Matches.');
-     else setNotice('Interest sent.');
-   }catch(e){setError(e instanceof Error?e.message:'Could not respond')}
-   finally{setBusy(false)}
- }
- if(loading)return <View style={s.center}><ActivityIndicator color={Love.wine}/></View>;
- if(!user||!token)return <Redirect href="/login"/>;
- return <SafeAreaView style={s.safe} edges={['top','left','right']}><ScrollView contentContainerStyle={s.content}>
-  <BrandLockup/>
-  <Text style={s.eyebrow}>YOUR ADMIRERS</Text>
-  <Text style={s.title}>Someone noticed you.</Text>
-  <Text style={s.description}>Real interest from approved members, never simulated likes. Connections happen only when you both choose each other.</Text>
-  {!!error&&<Text style={s.error}>{error}</Text>}
-  {!!notice&&<Text style={s.notice}>{notice}</Text>}
-  {likes.map(x=><View key={x.id} style={s.card}>
-    <View style={s.avatar}><Text style={s.heart}>♡</Text></View>
-    <View style={s.person}><Text style={s.name}>{x.name}, {x.age}</Text>
-      <Text style={s.detail}>{x.city||'Location undisclosed'}</Text>
-      <Text style={s.detail}>{x.relationshipGoal||'Looking for a connection'}</Text>
-    </View>
-    <Pressable disabled={busy} accessibilityRole="button" onPress={()=>void respond(x.id)} style={s.action}>
-      <Text style={s.actionText}>Like back</Text>
-    </Pressable>
-  </View>)}
-  {!likes.length&&!error&&<View style={s.empty}>
-    <Text style={s.emptyIcon}>♡</Text><Text style={s.emptyTitle}>A connection is worth the wait.</Text>
-    <Text style={s.description}>When someone likes you, you will see them here. Your profile must be visible in Discover to meet new people.</Text>
-    <Pressable accessibilityRole="button" onPress={()=>router.push('/(member)/discover')} style={s.button}>
-      <Text style={s.buttonText}>Explore people</Text>
-    </Pressable>
-  </View>}
- </ScrollView></SafeAreaView>;
+
+type Like = { id: string; name: string; city: string | null; age: number; relationshipGoal: string | null; receivedAt: string };
+
+export default function Likes() {
+  const { user, token } = useSession();
+  const active = user?.status === 'ACTIVE';
+  const query = useApiQuery<{ likes: Like[] }>(active ? '/discovery/likes' : null, token);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ tone: 'success' | 'info' | 'error'; message: string; matched?: boolean } | null>(null);
+
+  async function likeBack(person: Like) {
+    if (!token || busyId) return;
+    setBusyId(person.id); setFeedback(null);
+    try {
+      const result = await apiRequest<{ matched: boolean }>('/discovery/' + encodeURIComponent(person.id) + '/like', 'POST', {}, token);
+      query.mutate(data => ({ likes: data.likes.filter(x => x.id !== person.id) }));
+      setFeedback(result.matched
+        ? { tone: 'success', message: "It's a match! You and " + person.name + ' like each other.', matched: true }
+        : { tone: 'info', message: 'Interest sent to ' + person.name + '.' });
+    } catch (e) { setFeedback({ tone: 'error', message: e instanceof Error ? e.message : 'Could not respond.' }); }
+    finally { setBusyId(null); }
+  }
+
+  const header = <PageTitle eyebrow="LIKES YOU" title="Someone noticed you."
+    subtitle="Real interest from verified members. Like them back and it's a match." />;
+  if (!active) return <TabScreen>{header}<LockedState feature="Likes" /></TabScreen>;
+
+  const likes = query.data?.likes ?? [];
+  return (
+    <TabScreen refreshing={query.refreshing} onRefresh={query.pullToRefresh}>
+      {header}
+      {feedback ? <Notice tone={feedback.tone} message={feedback.message}
+        actionLabel={feedback.matched ? 'Go to matches' : undefined} onAction={feedback.matched ? () => router.navigate('/matches') : undefined} /> : null}
+      <Notice tone="error" message={query.error} actionLabel="Try again" onAction={query.reload} />
+      {query.loading ? <ActivityIndicator color={Love.wine} style={styles.spinner} /> : null}
+
+      {likes.length ? <Text style={styles.count}>{likes.length} {likes.length === 1 ? 'person likes' : 'people like'} you</Text> : null}
+      {likes.map(person => (
+        <Card key={person.id} style={styles.card}>
+          <Avatar name={person.name} size={58} />
+          <View style={styles.info}>
+            <Text style={styles.name}>{person.name}, {person.age}</Text>
+            <Text style={styles.meta} numberOfLines={1}>{person.city || 'Location undisclosed'}</Text>
+            <Text style={styles.meta} numberOfLines={1}>{person.relationshipGoal || 'Looking for a connection'}</Text>
+          </View>
+          <Pressable accessibilityRole="button" accessibilityLabel={'Like ' + person.name + ' back'} disabled={!!busyId}
+            onPress={() => { void likeBack(person); }} style={({ pressed }) => [styles.action, (pressed || !!busyId) && styles.dim]}>
+            {busyId === person.id ? <ActivityIndicator color={Love.white} size="small" /> : <Text style={styles.actionText}>Like back</Text>}
+          </Pressable>
+        </Card>
+      ))}
+
+      {query.data && !likes.length ? (
+        <EmptyState icon="heart" title="Good things take time."
+          body="When someone likes you, they'll appear here. Make sure you've joined discovery so new people can find you."
+          actionLabel="Explore people" onAction={() => router.navigate('/discover')} />
+      ) : null}
+    </TabScreen>
+  );
 }
-const s=StyleSheet.create({
- safe:{flex:1,backgroundColor:Love.paper},center:{flex:1,alignItems:'center',justifyContent:'center'},
- content:{width:'100%',maxWidth:550,alignSelf:'center',paddingHorizontal:24,paddingTop:28,paddingBottom:70,gap:18},
- eyebrow:{fontSize:11,color:Love.wine,letterSpacing:1.7,fontWeight:'800',marginTop:18},
- title:{fontSize:40,lineHeight:46,fontFamily:serif,color:Love.ink},
- description:{fontSize:14,lineHeight:23,color:Love.muted},
- card:{padding:18,backgroundColor:Love.white,borderColor:Love.line,borderWidth:1,borderRadius:18,
-  flexDirection:'row',alignItems:'center',gap:13,flexWrap:'wrap'},
- avatar:{height:56,width:56,backgroundColor:'#F5E8ED',borderRadius:28,alignItems:'center',justifyContent:'center'},
- heart:{fontSize:28,color:Love.wine},person:{flex:1,gap:5,minWidth:130},
- name:{fontWeight:'800',fontSize:17,color:Love.ink},detail:{fontSize:12,color:Love.muted},
- action:{backgroundColor:Love.wine,paddingHorizontal:13,paddingVertical:12,borderRadius:12},
- actionText:{color:Love.white,fontSize:12,fontWeight:'800'},
- empty:{backgroundColor:Love.white,borderColor:Love.line,borderWidth:1,borderRadius:22,
- padding:30,alignItems:'center',gap:17,marginTop:15},
- emptyIcon:{fontSize:60,color:Love.blush},
- emptyTitle:{fontFamily:serif,fontSize:29,color:Love.ink,textAlign:'center'},
- button:{backgroundColor:Love.wine,paddingHorizontal:26,paddingVertical:16,borderRadius:14},
- buttonText:{color:Love.white,fontWeight:'800'},
- error:{padding:14,color:Love.error,backgroundColor:Love.errorBg,borderRadius:9},
- notice:{padding:14,color:'#256544',backgroundColor:'#E7F2EA',borderRadius:9},
+
+const styles = StyleSheet.create({
+  spinner: { marginVertical: 30 },
+  count: { fontSize: 12, fontWeight: '800', letterSpacing: 0.6, color: Love.muted },
+  card: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14 },
+  info: { flex: 1, gap: 3 },
+  name: { fontWeight: '800', fontSize: 16, color: Love.ink },
+  meta: { fontSize: 12, color: Love.muted },
+  action: { backgroundColor: Love.wine, paddingHorizontal: 14, minHeight: 40, minWidth: 92, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  actionText: { color: Love.white, fontSize: 13, fontWeight: '800' },
+  dim: { opacity: 0.7 },
 });

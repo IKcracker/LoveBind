@@ -61,7 +61,7 @@ export default function ModerationScreen() {
   <Pressable onPress={()=>router.replace('/')}><Text style={s.link}>Back to LoveBind</Text></Pressable>
  </View></SafeAreaView>;
  return <SafeAreaView style={s.safe}><ScrollView contentContainerStyle={s.content}>
-  <View style={s.header}><BrandLockup/><Pressable onPress={()=>router.replace('/')}><Text style={s.link}>Home →</Text></Pressable></View>
+  <View style={s.header}><BrandLockup/><Pressable onPress={()=>router.canGoBack()?router.back():router.replace('/profile')} hitSlop={10} accessibilityRole="button"><Text style={s.link}>Done</Text></Pressable></View>
   <Text style={s.eyebrow}>RESTRICTED · LOVE BIND TRUST TEAM</Text>
   <Text style={s.title}>Photo review.</Text>
   <Text style={s.description}>Review the submitted profile photo, not the member’s identity document. Approved photos remain private until the member meets every account requirement.</Text>
