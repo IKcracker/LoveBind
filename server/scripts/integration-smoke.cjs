@@ -16,6 +16,7 @@ const child = spawn(process.execPath, ['dist/main.js'], {
     LOVEBIND_MODERATOR_IDS: moderatorId,
     LOVEBIND_ADMIN_EMAIL: envAdminEmail,
     LOVEBIND_ADMIN_PASSWORD: envAdminPassword,
+    DIDIT_API_KEY:'ci-fake-didit-key-not-used',
     R2_ACCOUNT_ID: 'ci-account', R2_BUCKET: 'ci-private',
     R2_ACCESS_KEY_ID: 'ci-test-key', R2_SECRET_ACCESS_KEY: 'ci-fake-key-not-used' },
   stdio: ['ignore', 'pipe', 'pipe'],
