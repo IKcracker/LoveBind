@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Get, Post, Body, Req, ServiceUnavailableException, UseGuards } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Post, Body, Req, ServiceUnavailableException, UseGuards, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { S3Client, PutObjectCommand, HeadObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -40,7 +40,6 @@ export class PhotoController {
     const contentType = input.contentType as string;
     const url = await getSignedUrl(client, new PutObjectCommand({
       Bucket: bucket, Key: key, ContentType: contentType, ContentLength: input.size,
-      Metadata: { kind: 'profile-photo' },
     }), { expiresIn: 300 });
     return { uploadUrl: url, key, contentType, maxBytes: MAX_BYTES };
   }
@@ -54,7 +53,7 @@ export class PhotoController {
       throw new BadRequestException('Invalid profile photo');
     }
     const { client, bucket } = storage();
-    const object = await client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+    const object = await client.send(new HeadObjectCommand({ Bucket: bucket, Key: key })).catch(() => { throw new NotFoundException('Uploaded photo was not found'); });
     if (!object.ContentLength || object.ContentLength > MAX_BYTES || !imageTypes.has(object.ContentType ?? '')) {
       throw new BadRequestException('Uploaded file does not meet photo requirements');
     }
