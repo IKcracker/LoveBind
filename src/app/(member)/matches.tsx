@@ -31,22 +31,25 @@ export default function Matches() {
               <View key={m.id} style={styles.stripItem}>
                 <View style={styles.ring}><Avatar name={m.name} size={60} /></View>
                 <Text style={styles.stripName} numberOfLines={1}>{m.name.split(' ')[0]}</Text>
-              </Pressable>
+              </View>
             ))}
           </View>
           <Card style={styles.list}>
             {matches.map((m, i) => (
-              <Pressable key={m.id} accessibilityRole="button" accessibilityLabel={'Chat with ' + m.name} onPress={() => router.push({pathname:'/chat/[matchId]',params:{matchId:m.id}})} style={[styles.row, i < matches.length - 1 && styles.divider]}>
-                <Avatar name={m.name} size={50} />
-                <View style={styles.info}>
-                  <Text style={styles.name}>{m.name}</Text>
-                  <MemberSafetyLink memberId={m.memberId} name={m.name} matchId={m.id} />
-                  <Text style={styles.meta} numberOfLines={1}>{m.city || 'Location undisclosed'} · Matched {new Date(m.createdAt).toLocaleDateString()}</Text>
-                </View>
+              <View key={m.id} style={[styles.row, i < matches.length - 1 && styles.divider]}>
+                <Pressable accessibilityRole="button" accessibilityLabel={'Chat with ' + m.name}
+                  onPress={() => router.push({ pathname: '/chat/[matchId]', params: { matchId: m.id } })}
+                  style={styles.chatLink}>
+                  <Avatar name={m.name} size={50} />
+                  <View style={styles.info}>
+                    <Text style={styles.name}>{m.name}</Text>
+                    <Text style={styles.meta} numberOfLines={1}>{m.city || 'Location undisclosed'} · Matched {new Date(m.createdAt).toLocaleDateString()}</Text>
+                  </View>
+                </Pressable>
+                <MemberSafetyLink memberId={m.memberId} name={m.name} matchId={m.id} />
               </View>
             ))}
           </Card>
-          <Notice tone="info" message="Private conversations are coming soon. We're finishing safety checks first, so we won't show placeholder chats." />
         </>
       ) : null}
 
@@ -67,7 +70,8 @@ const styles = StyleSheet.create({
   ring: { padding: 2, borderRadius: 34, borderWidth: 2, borderColor: Love.blush },
   stripName: { fontSize: 12, fontWeight: '700', color: Love.ink },
   list: { padding: 0, overflow: 'hidden' },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 14 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 14 },
+  chatLink: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 14 },
   divider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Love.line },
   info: { flex: 1, gap: 3 },
   name: { fontSize: 16, fontWeight: '700', color: Love.ink },
