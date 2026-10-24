@@ -21,7 +21,7 @@ export default function CompatibilityQuiz(){
  const [error,setError]=useState<string|null>(null);
  const [refresh,setRefresh]=useState(0);
  useEffect(()=>{
-  if(!token||!valid)return;
+  if(!token||typeof matchId!=='string'||!valid)return;
   let active=true;
   apiRequest<Quiz>('/quizzes/matches/'+encodeURIComponent(matchId),'GET',undefined,token)
    .then(data=>{if(active){setQuiz(data);setError(null);}})
@@ -30,7 +30,7 @@ export default function CompatibilityQuiz(){
  },[matchId,token,valid,refresh]);
  const next=useMemo(()=>quiz?.questions.find(q=>!quiz.myAnswers.some(a=>a.questionId===q.id)),[quiz]);
  async function action(endpoint:string,method:'POST'|'PUT',body?:object){
-  if(!token||!valid||busy)return;
+  if(!token||typeof matchId!=='string'||!valid||busy)return;
   setBusy(true);setError(null);
   try{
    const updated=await apiRequest<Quiz>('/quizzes/matches/'+encodeURIComponent(matchId)+endpoint,method,body??{},token);
@@ -82,7 +82,7 @@ export default function CompatibilityQuiz(){
     <Text style={s.body}>This score compares questionnaire preferences only. Your choices, feelings and consent matter much more than a score.</Text>
     <Text style={s.caption}>Love Bind bookings and PayFast payments are not enabled yet.</Text>
   </View>:null}
-  <FormButton text="Back to conversation" secondary onPress={()=>router.navigate({pathname:'/chat/[matchId]',params:{matchId}})}/>
+  <FormButton text="Back to conversation" secondary onPress={()=>router.navigate({pathname:'/chat/[matchId]',params:{matchId:matchId!}})}/>
  </StackScreen>;
 }
 const s=StyleSheet.create({
