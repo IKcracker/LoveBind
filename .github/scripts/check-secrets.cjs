@@ -13,7 +13,12 @@ for (const path of tracked) {
     continue;
   }
   if (path.endsWith('.lock') || path.endsWith('package-lock.json')) continue;
-  // git ls-files also lists gitlinks (mode 160000), including a legacy nested LoveBind\n  // directory. They aren't regular files and reading them raises EISDIR in CI.\n  // Scan all tracked regular files while preserving the credential checks.\n  const stat = fs.lstatSync(path);\n  if (!stat.isFile()) continue;\n  const data = fs.readFileSync(path);
+  // git ls-files also lists gitlinks (mode 160000), including a legacy nested LoveBind
+  // directory. They aren't regular files and reading them raises EISDIR in CI.
+  // Scan all tracked regular files while preserving the credential checks.
+  const stat = fs.lstatSync(path);
+  if (!stat.isFile()) continue;
+  const data = fs.readFileSync(path);
   if (data.includes(0)) continue;
   const text = data.toString('utf8');
   if (/postgres(?:ql)?:\/\/[^\s:/]+:(?!PASSWORD|YOUR_PASSWORD|CHANGE_ME|ci-only)[^\s@]{8,}@/i.test(text) &&
