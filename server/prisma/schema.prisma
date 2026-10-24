@@ -70,6 +70,7 @@ model User {
   credential   EmailCredential?
   sessions     AuthSession[]
   consents     ConsentRecord[]
+  identityVerification IdentityVerification?
 }
 
 model Profile {
@@ -287,4 +288,17 @@ model AuthSession {
   revokedAt   DateTime?
   createdAt   DateTime @default(now())
   @@index([userId, expiresAt])
+}
+
+model IdentityVerification {
+  id String @id @default(cuid())
+  userId String @unique
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerSessionId String @unique
+  status String @default("Not Started")
+  consentAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  lastCheckedAt DateTime?
+  @@index([status])
 }
