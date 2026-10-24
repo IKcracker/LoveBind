@@ -12,6 +12,7 @@ export default function RootLayout() {
         contentStyle: { backgroundColor: Palette.background },
       }}>
         <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="(member)" options={{ headerShown: false }} />
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="register" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false }} />
