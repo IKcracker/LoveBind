@@ -8,30 +8,25 @@ import { storage } from '../photos/photo.controller';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { reconcileAccount } from './activation';
-
-function canModerate(userId: string): boolean {
-  const allowed = process.env.LOVEBIND_MODERATOR_IDS;
-  if (!allowed) return false;
-  return allowed.split(',').map(id => id.trim()).filter(Boolean).includes(userId);
-}
+import { canModerate } from '../auth/admin-bootstrap';
 
 @Controller('moderation')
 @UseGuards(AuthGuard)
 export class ModerationController {
   constructor(private readonly prisma: PrismaService) {}
 
-  private requireModerator(req: AuthenticatedRequest) {
-    if (!canModerate(req.authUserId)) throw new ForbiddenException('Moderator access required');
+  private async requireModerator(req: AuthenticatedRequest) {
+    if (!(await canModerate(this.prisma, req.authUserId))) throw new ForbiddenException('Moderator access required');
   }
 
   @Get('access')
-  access(@Req() req: AuthenticatedRequest) {
-    return { canModerate: canModerate(req.authUserId) };
+  async access(@Req() req: AuthenticatedRequest) {
+    return { canModerate: await canModerate(this.prisma, req.authUserId) };
   }
 
   @Get('photos')
   async photos(@Req() req: AuthenticatedRequest) {
-    this.requireModerator(req);
+    await this.requireModerator(req);
     const rows = await this.prisma.profile.findMany({
       where: { photoReviewStatus: 'PENDING', photoObjectKey: { not: null } },
       select: { userId: true, displayName: true, photoObjectKey: true, updatedAt: true },
@@ -50,7 +45,7 @@ export class ModerationController {
 
   @Post('photos/:userId/decision')
   async decide(@Req() req: AuthenticatedRequest, @Param('userId') userId: string, @Body() body: unknown) {
-    this.requireModerator(req);
+    await this.requireModerator(req);
     if (req.authUserId === userId) throw new ForbiddenException('You cannot review your own photo');
     if (typeof userId !== 'string' || !/^[A-Za-z0-9_-]{10,100}$/.test(userId)) {
       throw new BadRequestException('Invalid account');

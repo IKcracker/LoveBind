@@ -1,0 +1,34 @@
+name: LoveBind Admin CRM
+on:
+  pull_request:
+    branches: [main, feat/photo-moderation-activation]
+    paths:
+      - 'admin/**'
+      - '.github/workflows/admin-crm.yml'
+  push:
+    branches: [main, feat/admin-react-crm]
+    paths:
+      - 'admin/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  admin-web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install React CRM dependencies
+        working-directory: admin
+        run: npm ci --no-audit --no-fund
+      - name: Check committed lockfile
+        working-directory: admin
+        run: git diff --exit-code -- package-lock.json
+      - name: Typecheck and build React CRM
+        working-directory: admin
+        run: npm run build

@@ -63,6 +63,7 @@ export class PhotoController {
         where: { userId: req.authUserId },
         data: { photoObjectKey: key, photoReviewStatus: 'PENDING', isVisible: false },
       });
+      await tx.user.update({ where: { id: req.authUserId }, data: { adminApprovalStatus: 'PENDING' } });
       await reconcileAccount(tx, req.authUserId);
     });
     return { status: 'PENDING' };

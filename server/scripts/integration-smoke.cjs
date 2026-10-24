@@ -5,9 +5,19 @@ const { randomUUID } = require('node:crypto');
 
 const port = Number(process.env.PORT || '4010');
 const base = 'http://127.0.0.1:' + port;
+const moderatorId = 'ciadmin' + randomUUID().replace(/-/g,'');
+const moderatorEmail = 'moderator+' + randomUUID() + '@example.invalid';
+const moderatorPassword = 'VeryLongModeratorPassword-2026!';
+const envAdminEmail = 'envadmin+' + randomUUID() + '@example.invalid';
+const envAdminPassword = 'StrongEnvAdminPassword-2026!';
 const child = spawn(process.execPath, ['dist/main.js'], {
   cwd: require('node:path').join(__dirname, '..'),
-  env: { ...process.env, PORT: String(port), CORS_ORIGINS: 'http://localhost:8081' },
+  env: { ...process.env, PORT: String(port), CORS_ORIGINS: 'http://localhost:8081',
+    LOVEBIND_MODERATOR_IDS: moderatorId,
+    LOVEBIND_ADMIN_EMAIL: envAdminEmail,
+    LOVEBIND_ADMIN_PASSWORD: envAdminPassword,
+    R2_ACCOUNT_ID: 'ci-account', R2_BUCKET: 'ci-private',
+    R2_ACCESS_KEY_ID: 'ci-test-key', R2_SECRET_ACCESS_KEY: 'ci-fake-key-not-used' },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 let logs = '';
@@ -35,7 +45,29 @@ async function awaitReady() {
 }
 async function smoke() {
   await awaitReady();
+  const { PrismaClient } = require('@prisma/client');
+  const { hashPassword } = require('../dist/modules/auth/password.js');
+  const seed = new PrismaClient();
+  try {
+    await seed.user.create({data:{id:moderatorId, authSubject:randomUUID(),
+      credential:{create:{email:moderatorEmail,passwordHash:await hashPassword(moderatorPassword)}},
+      profile:{create:{displayName:'CI Moderator',birthDate:new Date('1993-01-01')}}}});
+  } finally { await seed.$disconnect(); }
+
   assert.equal((await call('/health/db')).status, 200, 'PostgreSQL connection');
+  const envAdminLogin = await call('/auth/login', 'POST', {email:envAdminEmail,password:envAdminPassword});
+  assert.equal(envAdminLogin.status,201,'environment admin account bootstrapped');
+  const envAdminToken=envAdminLogin.json.accessToken;
+  assert.equal((await call('/moderation/access','GET',undefined,envAdminToken)).json.canModerate,true,
+    'environment admin has moderator access');
+  assert.equal((await call('/moderation/admin/overview','GET',undefined,envAdminToken)).status,200,
+    'environment admin can load CRM');
+  const envAdminMe=await call('/auth/me','GET',undefined,envAdminToken);
+  assert.equal(envAdminMe.json.profile,null,'environment admin is not a dating profile');
+  assert.equal((await call('/moderation/admin/members?q='+encodeURIComponent(envAdminEmail),'GET',undefined,envAdminToken)).json.total,0,
+    'environment admin excluded from members directory');
+  assert.equal((await call('/auth/login','POST',{email:envAdminEmail,password:'wrong'})).status,401,
+    'invalid admin password denied');
   assert.equal((await call('/auth/me')).status, 401, 'private endpoint rejects guests');
   const email = 'ci+' + randomUUID() + '@example.invalid';
   const registration = {
@@ -50,6 +82,29 @@ async function smoke() {
   assert.ok(created.json.accessToken, 'opaque bearer token issued');
   const token = created.json.accessToken;
   assert.equal((await call('/moderation/photos')).status, 401, 'moderation queue is authenticated');
+  assert.equal((await call('/moderation/admin/overview')).status, 401,
+    'admin dashboard cannot be viewed without login');
+  assert.equal((await call('/moderation/admin/overview', 'GET', undefined, token)).status, 403,
+    'member cannot access admin dashboard');
+  assert.equal((await call('/moderation/admin/members', 'GET', undefined, token)).status, 403,
+    'member directory restricted to admin');
+  const adminSession = await call('/auth/login', 'POST', {
+    email: moderatorEmail, password: moderatorPassword,
+  });
+  assert.equal(adminSession.status, 201, 'authorized moderator can log in');
+  const adminToken = adminSession.json.accessToken;
+  const overview = await call('/moderation/admin/overview', 'GET', undefined, adminToken);
+  assert.equal(overview.status, 200, 'moderator dashboard available');
+  const directory = await call('/moderation/admin/members?q=Taylor', 'GET', undefined, adminToken);
+  assert.equal(directory.status, 200, 'member directory available');
+  assert.ok(directory.json.members.some(x => x.id === created.json.user.id));
+  assert.equal((await call('/moderation/admin/members/' + moderatorId + '/decision',
+    'POST', { decision:'APPROVED' }, adminToken)).status, 403,
+    'admin cannot approve own account');
+  assert.equal((await call('/moderation/admin/members/' + created.json.user.id + '/decision',
+    'POST', { decision:'APPROVED' }, adminToken)).status, 409,
+    'admin cannot approve member without verified age and photo');
+
   assert.equal((await call('/moderation/access', 'GET', undefined, token)).status, 200);
   assert.equal((await call('/moderation/photos', 'GET', undefined, token)).status, 403,
     'ordinary users cannot review others');
@@ -65,7 +120,6 @@ async function smoke() {
 
   // Seed one isolated catalogue row. New profile cities must be selected from
   // the canonical GeoNames list rather than accepted as unchecked free text.
-  const { PrismaClient } = require('@prisma/client');
   const prisma = new PrismaClient();
   try {
     await prisma.geoCity.create({
@@ -89,6 +143,42 @@ async function smoke() {
   }, token);
   assert.equal(updated.status, 200, 'can update own profile');
   assert.equal(updated.json.city, 'Pretoria');
+  const reject = await call('/moderation/admin/members/' + created.json.user.id + '/decision',
+    'POST', { decision:'REJECTED', reason:'Profile verification remains incomplete' }, adminToken);
+  assert.equal(reject.status, 201, 'admin rejection is recorded');
+  assert.equal(reject.json.accountActive, false, 'rejected member stays inactive');
+  assert.equal((await call('/moderation/admin/members/' + created.json.user.id + '/decision',
+    'POST', { decision:'APPROVED' }, adminToken)).status, 409,
+    'rejected account still cannot bypass age and photo verification');
+
+  // Synthetic evidence on an isolated disposable CI DB only. Never write
+  // provider approval values from application clients in any real environment.
+  const synthetic = new PrismaClient();
+  try {
+    await synthetic.profile.update({where:{userId:created.json.user.id},data:{
+      photoObjectKey:'profiles/' + created.json.user.id + '/ci-test-image',
+      photoReviewStatus:'APPROVED',
+    }});
+    await synthetic.identityVerification.create({data:{
+      userId:created.json.user.id,providerSessionId:'ci-' + randomUUID(),
+      status:'Approved',consentAt:new Date(),ageEvidenceStatus:'VERIFIED',ageVerifiedAt:new Date(),
+    }});
+  } finally { await synthetic.$disconnect(); }
+  const memberBeforeApproval = await call('/moderation/admin/members/' + created.json.user.id,
+    'GET', undefined, adminToken);
+  assert.equal(memberBeforeApproval.status, 200, 'admin can review synthetic member details');
+  assert.equal(memberBeforeApproval.json.eligible, true, 'all evidence gates satisfied');
+  const approve = await call('/moderation/admin/members/' + created.json.user.id + '/decision',
+    'POST', { decision:'APPROVED', reason:'All synthetic checks passed' }, adminToken);
+  assert.equal(approve.status, 201, 'explicit moderator approval allowed');
+  assert.equal(approve.json.accountActive, true, 'approval activates eligible member');
+  const activatedUser = await call('/auth/me','GET',undefined,token);
+  assert.equal(activatedUser.json.status,'ACTIVE');
+  const audit = await call('/moderation/admin/activity','GET',undefined,adminToken);
+  assert.equal(audit.status,200);
+  assert.ok(audit.json.events.some(e=>e.memberId===created.json.user.id && e.decision==='APPROVED'),
+    'explicit approval appears in audit log');
+
   const badPrefs = await call('/preferences/me', 'PUT', {
     minAge: 15, maxAge: 30, preferredCities: [], relationshipGoals: [],
   }, token);

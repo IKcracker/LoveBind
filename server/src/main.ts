@@ -2,12 +2,18 @@ import 'reflect-metadata';
 import './load-env';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { PrismaService } from './prisma/prisma.service';
+import { bootstrapEnvAdmin } from './modules/auth/admin-bootstrap';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
   app.enableShutdownHooks();
+  // Express middleware must be registered before Nest initializes its routes.
+  // In particular, browser CORS preflight requests must be handled first.
   const origins = (process.env.CORS_ORIGINS ?? '').split(',').map(x => x.trim()).filter(Boolean);
   app.enableCors({ origin: origins, credentials: true });
+  await app.init();
+  await bootstrapEnvAdmin(app.get(PrismaService));
   const port = Number(process.env.PORT ?? 4000);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PORT invalid');
   await app.listen(port, '0.0.0.0');

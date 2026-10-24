@@ -35,6 +35,7 @@ export class ProfileController {
       data: fields,
       select: { displayName: true, city: true, cityPlaceId: true, bio: true, relationshipGoal: true, occupation: true, interests: true, coreValues: true, photoReviewStatus: true, isVisible: true },
       });
+      await tx.user.update({ where: { id: request.authUserId }, data: { adminApprovalStatus: 'PENDING' } });
       await reconcileAccount(tx, request.authUserId);
       return profile;
     });

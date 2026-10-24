@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { approvedForActivation, evaluateDiditAge } from './activation';
+import { eligibleForAdminApproval, evaluateDiditAge } from './activation';
 
 const dob = new Date('1997-07-23T00:00:00Z');
 function decision(dateOfBirth = '1997-07-23') {
@@ -28,8 +28,8 @@ test('activation requires age-evidence, ID, profile and moderated photo',()=>{
     status:'Approved',ageEvidenceStatus:'VERIFIED',ageVerifiedAt:new Date(),
   },profile:{birthDate:dob,city:'Pretoria',bio:'A complete introduction',
     relationshipGoal:'Long term',photoObjectKey:'profiles/test/photo',photoReviewStatus:'APPROVED'}};
-  assert.equal(approvedForActivation(account),true);
-  assert.equal(approvedForActivation({...account,profile:{...account.profile,photoReviewStatus:'PENDING'}}),false);
-  assert.equal(approvedForActivation({...account,identityVerification:{...account.identityVerification,ageVerifiedAt:null}}),false);
-  assert.equal(approvedForActivation({...account,identityVerification:{...account.identityVerification,ageEvidenceStatus:'DOB_MISMATCH'}}),false);
+  assert.equal(eligibleForAdminApproval(account),true);
+  assert.equal(eligibleForAdminApproval({...account,profile:{...account.profile,photoReviewStatus:'PENDING'}}),false);
+  assert.equal(eligibleForAdminApproval({...account,identityVerification:{...account.identityVerification,ageVerifiedAt:null}}),false);
+  assert.equal(eligibleForAdminApproval({...account,identityVerification:{...account.identityVerification,ageEvidenceStatus:'DOB_MISMATCH'}}),false);
 });
