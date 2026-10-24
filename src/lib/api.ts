@@ -12,6 +12,9 @@ export async function apiRequest<T>(
   const base = process.env.EXPO_PUBLIC_API_URL?.replace(/\/+$/, '');
   if (!base) throw new ApiError('API address not configured. Set EXPO_PUBLIC_API_URL in .env.local.');
   if (!/^https?:\/\//.test(base)) throw new ApiError('EXPO_PUBLIC_API_URL must be an absolute URL.');
+  if (!__DEV__ && !base.startsWith('https://')) {
+    throw new ApiError('A secure HTTPS API address is required.');
+  }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
   try {
@@ -32,7 +35,7 @@ export async function apiRequest<T>(
       const detail = typeof message === 'string' ? message
         : Array.isArray(message) ? message.filter((x): x is string => typeof x === 'string').join(', ')
         : 'Request failed. Try again.';
-      throw new ApiError(detail, response.status);
+      throw new ApiError(response.status >= 500 ? 'Service temporarily unavailable. Please try again.' : detail, response.status);
     }
     return payload as T;
   } catch (error) {

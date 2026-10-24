@@ -12,8 +12,8 @@ export default function RootLayout() {
         contentStyle: { backgroundColor: Palette.background },
       }}>
         <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="login" options={{ title: 'Sign in' }} />
-        <Stack.Screen name="register" options={{ title: 'Join LoveBind' }} />
+        <Stack.Screen name="login" options={{ headerShown: false }} />
+        <Stack.Screen name="register" options={{ headerShown: false }} />
         <Stack.Screen name="profile" options={{ title: 'My profile' }} />
         <Stack.Screen name="preferences" options={{ title: 'Partner preferences' }} />
       </Stack>

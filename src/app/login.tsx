@@ -1,33 +1,95 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Redirect, router } from 'expo-router';
-import { ActivityIndicator, View } from 'react-native';
-import { ActionButton, Brand, ErrorMessage, Field, Heading, Page, Palette } from '@/components/lovebind-ui';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import {
+  AuthField, AuthLayout, FormButton, FormError, FormLink, PasswordField, authStyles,
+} from '@/components/auth-screens';
+import { Palette } from '@/components/lovebind-ui';
+import { validateLogin, type FormErrors } from '@/lib/auth-validation';
 import { useSession } from '@/lib/session';
 
 export default function LoginScreen() {
   const { loading, user, signIn } = useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<FormErrors>({});
+  const [apiError, setApiError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  if (loading) return <View style={{ flex: 1, justifyContent: 'center' }}><ActivityIndicator color={Palette.rose} /></View>;
+
+  const submit = useCallback(async () => {
+    if (busy) return;
+    const errors = validateLogin(email, password);
+    setFieldErrors(errors);
+    setApiError(null);
+    if (Object.keys(errors).length) return;
+    setBusy(true);
+    try {
+      await signIn(email.trim().toLowerCase(), password);
+    } catch (error) {
+      setApiError(error instanceof Error ? error.message : 'Unable to sign in. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  }, [busy, email, password, signIn]);
+
+  if (loading) return (
+    <View style={styles.loading}><ActivityIndicator color={Palette.rose} size="large" /></View>
+  );
   if (user) return <Redirect href="/" />;
 
-  async function submit() {
-    if (!email.trim() || !password) { setError('Enter your email and password.'); return; }
-    setBusy(true); setError(null);
-    try { await signIn(email.trim(), password); }
-    catch (e) { setError(e instanceof Error ? e.message : 'Unable to sign in.'); }
-    finally { setBusy(false); }
-  }
-
-  return <Page>
-    <Brand caption="Your next meaningful connection begins here" />
-    <Heading title="Welcome back" subtitle="Sign in to continue building your LoveBind profile." />
-    <Field label="Email address" placeholder="you@example.com" autoCapitalize="none" keyboardType="email-address" autoComplete="email" value={email} onChangeText={setEmail} />
-    <Field label="Password" placeholder="Enter password" secureTextEntry autoComplete="current-password" value={password} onChangeText={setPassword} />
-    <ErrorMessage message={error} />
-    <ActionButton title="Sign in" busy={busy} onPress={() => { void submit(); }} />
-    <ActionButton title="Create an account" secondary onPress={() => router.push('/register')} />
-  </Page>;
+  return (
+    <AuthLayout
+      eyebrow="Great to see you again"
+      title="Welcome back."
+      description="Your next meaningful conversation is one sign-in away."
+      footer={<FormLink before="New to LoveBind?" action="Create an account" onPress={() => router.replace('/register')} />}
+    >
+      <Text style={authStyles.sectionHeading}>Sign in to your account</Text>
+      <AuthField
+        label="Email address"
+        placeholder="you@example.com"
+        value={email}
+        onChangeText={(text) => {
+          setEmail(text);
+          setFieldErrors((previous) => ({ ...previous, email: '' }));
+          setApiError(null);
+        }}
+        keyboardType="email-address"
+        autoComplete="email"
+        textContentType="emailAddress"
+        autoCapitalize="none"
+        autoCorrect={false}
+        returnKeyType="next"
+        maxLength={254}
+        error={fieldErrors.email}
+      />
+      <PasswordField
+        label="Password"
+        value={password}
+        onChangeText={(text) => {
+          setPassword(text);
+          setFieldErrors((previous) => ({ ...previous, password: '' }));
+          setApiError(null);
+        }}
+        error={fieldErrors.password}
+        onSubmitEditing={() => { void submit(); }}
+      />
+      <FormError message={apiError} />
+      <FormButton text="Sign in" busy={busy} onPress={() => { void submit(); }} />
+      <View style={authStyles.reassurance}>
+        <Text style={authStyles.reassuranceIcon}>✧</Text>
+        <Text style={authStyles.reassuranceText}>
+          Your account and conversations are yours. We won't show your profile in discovery until verification is available.
+        </Text>
+      </View>
+      <Text style={styles.support}>
+        Password recovery is not available yet. Please keep your credentials safe during development.
+      </Text>
+    </AuthLayout>
+  );
 }
+
+const styles = StyleSheet.create({
+  loading: { flex: 1, justifyContent: 'center', backgroundColor: Palette.background },
+  support: { textAlign: 'center', color: Palette.muted, fontSize: 11, lineHeight: 18 },
+});
