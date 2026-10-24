@@ -13,6 +13,8 @@ export type Preferences = {
 };
 export type CurrentUser = {
   id: string; status: 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'DELETED';
+  adminApprovalStatus?: string;
+  identityVerification?: { status: string; ageEvidenceStatus: string } | null;
   credential: { email: string } | null;
   profile: Profile | null; preferences: Preferences | null;
 };
