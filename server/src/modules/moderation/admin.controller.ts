@@ -8,11 +8,9 @@ import { eligibleForAdminApproval, reconcileAccount } from './activation';
 import { storage } from '../photos/photo.controller';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { canModerate } from '../auth/admin-bootstrap';
+import { ENV_ADMIN_SUBJECT } from '../auth/admin-bootstrap';
 
-function requireAdmin(id: string) {
-  const allowed = (process.env.LOVEBIND_MODERATOR_IDS ?? '').split(',').map(x => x.trim());
-  if (!allowed.includes(id)) throw new ForbiddenException('Administrator permission required');
-}
 function checkId(id: string) {
   if (!/^[A-Za-z0-9_-]{10,100}$/.test(id)) throw new BadRequestException('Invalid account identifier');
   return id;
@@ -29,7 +27,7 @@ function parseDecision(body: unknown) {
 }
 
 const memberSelect = {
-  id: true, status: true, adminApprovalStatus: true, createdAt: true,
+  id: true, status: true, authSubject: true, adminApprovalStatus: true, createdAt: true,
   credential: { select: { email: true } },
   profile: { select: {
     displayName: true, city: true, occupation: true, bio: true, relationshipGoal: true,
@@ -48,11 +46,11 @@ export class AdminController {
 
   @Get('overview')
   async overview(@Req() req: AuthenticatedRequest) {
-    requireAdmin(req.authUserId);
+    if (!(await canModerate(this.prisma, req.authUserId))) throw new ForbiddenException('Administrator permission required');
     const [total, active, awaitingAdmin, pendingPhotos, verifiedAges, openReports] = await Promise.all([
-      this.prisma.user.count({ where: { status: { not: 'DELETED' } } }),
-      this.prisma.user.count({ where: { status: 'ACTIVE' } }),
-      this.prisma.user.count({ where: { adminApprovalStatus: 'PENDING', status: 'PENDING' } }),
+      this.prisma.user.count({ where: { status: { not: 'DELETED' }, authSubject: { not: ENV_ADMIN_SUBJECT } } }),
+      this.prisma.user.count({ where: { status: 'ACTIVE', authSubject: { not: ENV_ADMIN_SUBJECT } } }),
+      this.prisma.user.count({ where: { adminApprovalStatus: 'PENDING', status: 'PENDING', authSubject: { not: ENV_ADMIN_SUBJECT } } }),
       this.prisma.profile.count({ where: { photoReviewStatus: 'PENDING' } }),
       this.prisma.identityVerification.count({ where: { status: 'Approved', ageEvidenceStatus: 'VERIFIED' } }),
       this.prisma.safetyReport.count({ where: { status: 'OPEN' } }),
@@ -63,11 +61,12 @@ export class AdminController {
   @Get('members')
   async members(@Req() req: AuthenticatedRequest, @Query('q') q?: string,
     @Query('status') status?: string, @Query('page') page?: string) {
-    requireAdmin(req.authUserId);
+    if (!(await canModerate(this.prisma, req.authUserId))) throw new ForbiddenException('Administrator permission required');
     const query = (q ?? '').trim().slice(0, 80);
     const current = Math.max(1, Math.min(1000, Number.parseInt(page || '1', 10) || 1));
     const where = {
       status: { not: 'DELETED' as const },
+      authSubject: { not: ENV_ADMIN_SUBJECT },
       ...(status && ['PENDING','APPROVED','REJECTED'].includes(status)
         ? { adminApprovalStatus: status } : {}),
       ...(query ? { OR: [
@@ -96,10 +95,10 @@ export class AdminController {
 
   @Get('members/:id')
   async member(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
-    requireAdmin(req.authUserId);
+    if (!(await canModerate(this.prisma, req.authUserId))) throw new ForbiddenException('Administrator permission required');
     const user = await this.prisma.user.findUnique({ where: { id: checkId(id) },
       select: memberSelect });
-    if (!user || user.status === 'DELETED') throw new NotFoundException('Member not found');
+    if (!user || user.status === 'DELETED' || user.authSubject === ENV_ADMIN_SUBJECT) throw new NotFoundException('Member not found');
     const [reviews, decisions] = await Promise.all([
       this.prisma.photoModerationReview.findMany({ where: { profileUserId: id },
         select: { id: true, decision: true, reason: true, reviewedAt: true },
@@ -136,7 +135,7 @@ export class AdminController {
 
   @Post('members/:id/decision')
   async decide(@Req() req: AuthenticatedRequest, @Param('id') id:string,@Body() body:unknown) {
-    requireAdmin(req.authUserId);
+    if (!(await canModerate(this.prisma, req.authUserId))) throw new ForbiddenException('Administrator permission required');
     checkId(id);
     if (req.authUserId === id) throw new ForbiddenException('You cannot approve your own account');
     const { decision, reason } = parseDecision(body);
@@ -160,7 +159,7 @@ export class AdminController {
 
   @Get('activity')
   async activity(@Req() req: AuthenticatedRequest) {
-    requireAdmin(req.authUserId);
+    if (!(await canModerate(this.prisma, req.authUserId))) throw new ForbiddenException('Administrator permission required');
     const [account, photos] = await Promise.all([
       this.prisma.accountModerationDecision.findMany({
         select: { id: true, userId: true, decision: true, reason: true,
