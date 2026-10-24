@@ -36,10 +36,10 @@ export default function Connections(){
   </View>)}
   {matches?.length===0&&!error?<View style={s.panel}>
    <Text style={s.panelTitle}>Great connections take two.</Text>
-   <Text style={s.description}>You haven't matched yet. Browse verified members and express interest when someone feels right.</Text>
+   <Text style={s.description}>You have not matched yet. Browse verified members and express interest when someone feels right.</Text>
    <FormButton text="Discover members" onPress={()=>router.push('/discover')}/>
   </View>:null}
-  {matches?.length? <View style={s.panel}><Text style={s.panelTitle}>What happens next?</Text><Text style={s.description}>We're building private conversations and a shared compatibility quiz. We won't display fake conversations or enable date bookings before those safety checks are ready.</Text></View>:null}
+  {matches?.length? <View style={s.panel}><Text style={s.panelTitle}>What happens next?</Text><Text style={s.description}>We are building private conversations and a shared compatibility quiz. We will not display fake conversations or enable date bookings before those safety checks are ready.</Text></View>:null}
   <Pressable onPress={()=>void refresh()}><Text style={[s.link,{textAlign:'center',padding:15}]}>Refresh connections</Text></Pressable>
  </ScrollView></SafeAreaView>;
 }
