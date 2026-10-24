@@ -46,6 +46,8 @@ export default function App(){
  const [intent,setIntent]=useState<Intent|null>(null);
  const [reason,setReason]=useState('');
  const [mobileOpen,setMobileOpen]=useState(false);
+ const [rechecking,setRechecking]=useState(false);
+ const [recheckHistory,setRecheckHistory]=useState<{id:string;source:string;outcome:string;previousStatus:string;resultStatus:string|null;issue:string|null;checkedAt:string}[]>([]);
 
  const logout=useCallback(async()=>{
   if(token)await request('/auth/logout',token,'POST',{}).catch(()=>undefined);
@@ -104,8 +106,41 @@ export default function App(){
  function navigate(next:View){setView(next);setSelected(null);setDetail(null);setNotice('');setError('');setMobileOpen(false);}
  async function openMember(id:string){
   if(!token)return;setSelected(id);setDetail(null);setError('');
-  try{setDetail(await request<MemberDetail>('/moderation/admin/members/'+encodeURIComponent(id),token));}
+  try{
+    const [member,history]=await Promise.all([
+      request<MemberDetail>('/moderation/admin/members/'+encodeURIComponent(id),token),
+      request<{events:typeof recheckHistory}>('/moderation/admin/members/'+encodeURIComponent(id)+'/age-rechecks',token),
+    ]);
+    setDetail(member);setRecheckHistory(history.events);
+   }
   catch(e){setError(e instanceof Error?e.message:'Unable to open this member');setSelected(null);}
+ }
+ async function recheckAge(id:string){
+  if(!token||rechecking)return;
+  setRechecking(true);setError('');setNotice('');
+  try{
+   const response=await request<{ageEvidenceStatus:string;ageEvidenceIssue:string|null}>(
+    '/moderation/admin/members/'+encodeURIComponent(id)+'/recheck-age',token,'POST',{});
+   setNotice('Age recheck: '+response.ageEvidenceStatus+(response.ageEvidenceIssue?' ('+response.ageEvidenceIssue+')':''));
+   const [member,history]=await Promise.all([
+    request<MemberDetail>('/moderation/admin/members/'+encodeURIComponent(id),token),
+    request<{events:typeof recheckHistory}>('/moderation/admin/members/'+encodeURIComponent(id)+'/age-rechecks',token),
+   ]);
+   setDetail(member);setRecheckHistory(history.events);
+   await load(view,token,query,filter,page);
+  }catch(e){setError(e instanceof Error?e.message:'Age recheck failed');}
+  finally{setRechecking(false);}
+ }
+ async function batchRecheck(){
+  if(!token||rechecking)return;
+  setRechecking(true);setError('');setNotice('');
+  try{
+   const response=await request<{processed:number;maxPerRequest:number;results:{result:string}[]}>(
+    '/moderation/admin/recheck-age/batch',token,'POST',{});
+   setNotice('Rechecked '+response.processed+' existing Didit sessions (max '+response.maxPerRequest+' per request).');
+   await load(view,token,query,filter,page);
+  }catch(e){setError(e instanceof Error?e.message:'Batch recheck failed');}
+  finally{setRechecking(false);}
  }
  function prepare(kind:Intent['kind'],id:string,name:string,decision:Intent['decision']){
   setIntent({kind,id,name,decision});setReason('');setError('');
@@ -204,7 +239,7 @@ export default function App(){
     </>}
     {view==='members'&&<>
       <SectionTitle eyebrow="MEMBER MANAGEMENT" title="Your community." description="Find people, review their verification progress, and make account decisions."
-      action={<button className="btn btn-white" onClick={()=>void refresh()}><RefreshCw size={16}/> Refresh</button>}/>
+      action={<div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button className="btn btn-white" disabled={rechecking} onClick={()=>void batchRecheck()}>{rechecking?<Loader2 className="spin" size={16}/>:<RefreshCw size={16}/>} Recheck pending ages (up to 5)</button><button className="btn btn-white" onClick={()=>void refresh()}><RefreshCw size={16}/> Refresh</button></div>}/>
       <section className="card table-card">
        <div className="table-toolbar"><div className="searchbox"><Search size={19}/><input value={query} onChange={e=>{setQuery(e.target.value);setPage(1)}} placeholder="Search name, email or member ID…" aria-label="Search members"/></div>
         <div className="select-wrap"><Filter size={17}/><select value={filter} aria-label="Filter approvals" onChange={e=>{setFilter(e.target.value);setPage(1)}}><option value="">All approvals</option><option value="PENDING">Awaiting review</option><option value="APPROVED">Approved</option><option value="REJECTED">Rejected</option></select><ChevronDown size={14}/></div>
