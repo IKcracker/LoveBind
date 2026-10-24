@@ -49,6 +49,7 @@ export function MemberHome() {
       </View>}
       {moderator ? <Shortcut title="Photo moderation" description="Review pending profile photos" onPress={()=>router.push('/moderation')} /> : null}
       <Text style={s.section}>{active?'Explore LoveBind':'Continue your journey'}</Text>
+      {active?<Shortcut title="My connections" description="See people who liked you back" onPress={()=>router.push('/connections')}/>:null}
       {active?<Shortcut title="Discover people ♡" description="Find verified members who fit your mutual preferences" onPress={()=>router.push('/discover')}/>:null}
       <Shortcut title="Partner preferences" description="Set the age range, cities and intentions that matter to you" onPress={()=>router.push('/preferences')}/>
       <Shortcut title="Your story" description={details ? 'Review your profile and interests' : 'Tell people what makes you, you'} onPress={()=>router.push('/onboarding')}/>
