@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { eligibleForAdminApproval, evaluateDiditAge } from './activation';
+import { eligibleForAdminApproval, evaluateDiditAge, evaluateDiditAgeEvidence } from './activation';
 
 const dob = new Date('1997-07-23T00:00:00Z');
 function decision(dateOfBirth = '1997-07-23') {
@@ -32,4 +32,31 @@ test('activation requires age-evidence, ID, profile and moderated photo',()=>{
   assert.equal(eligibleForAdminApproval({...account,profile:{...account.profile,photoReviewStatus:'PENDING'}}),false);
   assert.equal(eligibleForAdminApproval({...account,identityVerification:{...account.identityVerification,ageVerifiedAt:null}}),false);
   assert.equal(eligibleForAdminApproval({...account,identityVerification:{...account.identityVerification,ageEvidenceStatus:'DOB_MISMATCH'}}),false);
+});
+
+test('accepts Didit V3 root arrays and explicit true face match', () => {
+  const payload = {status:'Approved',
+    id_verifications:[{status:'Approved',date_of_birth:'1997-07-23'}],
+    liveness_checks:[{status:'Approved'}], face_matches:[{match:true}]};
+  assert.equal(evaluateDiditAge(payload,dob),'VERIFIED');
+});
+test('supports wrapped decision_v3 and singular positive verification checks', () => {
+  const payload={status:'Approved',decision_v3:{
+    id_verification:{status:'Approved',date_of_birth:'1997-07-23'},
+    liveness:{status:'Approved'},face_match:{status:'Approved'}}};
+  assert.equal(evaluateDiditAge(payload,dob),'VERIFIED');
+});
+test('fails closed on absent or negative verification evidence', () => {
+  const valid={status:'Approved',
+    id_verifications:[{status:'Approved',date_of_birth:'1997-07-23'}],
+    liveness_checks:[{status:'Approved'}],face_matches:[{match:true}]};
+  assert.deepEqual(evaluateDiditAgeEvidence({status:'Approved'},dob),{
+    status:'CHECKS_INCOMPLETE',issue:'ID_CHECK_MISSING'});
+  assert.equal(evaluateDiditAge({...valid,face_matches:[{match:false}]},dob),'CHECKS_INCOMPLETE');
+  assert.equal(evaluateDiditAge({...valid,liveness_checks:[]},dob),'CHECKS_INCOMPLETE');
+  assert.equal(evaluateDiditAge({...valid,id_verifications:[
+    ...valid.id_verifications,{status:'Declined',date_of_birth:'1997-07-23'}]},dob),'CHECKS_INCOMPLETE');
+  assert.equal(evaluateDiditAge({...valid,id_verifications:[{status:'Declined',
+    date_of_birth:'1997-07-23'}]},dob),'CHECKS_INCOMPLETE');
+  assert.equal(evaluateDiditAge({...valid,face_matches:[{match:true,status:'Declined'}]},dob),'CHECKS_INCOMPLETE');
 });
