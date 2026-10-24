@@ -75,6 +75,31 @@ export class DiscoveryController {
     }));
     return {needsOptIn:false,candidates:cards};
   }
+  @Get('likes')
+  async receivedLikes(@Req() req:AuthenticatedRequest) {
+    await this.eligible(req.authUserId);
+    const likes=await this.db.like.findMany({where:{toId:req.authUserId},
+      select:{fromId:true,createdAt:true},orderBy:{createdAt:'desc'},take:80});
+    const blocked=await this.db.block.findMany({where:{OR:[{blockerId:req.authUserId},{blockedId:req.authUserId}]},
+      select:{blockerId:true,blockedId:true}});
+    const excluded=new Set(blocked.flatMap(x=>[x.blockerId,x.blockedId]));
+    const profiles=await this.db.user.findMany({where:{
+      id:{in:likes.map(x=>x.fromId)},status:'ACTIVE',adminApprovalStatus:'APPROVED',
+      identityVerification:{is:{status:'Approved',ageEvidenceStatus:'VERIFIED',ageVerifiedAt:{not:null}}},
+      profile:{is:{isVisible:true,photoReviewStatus:'APPROVED'}},
+    },select:{id:true,profile:{select:{displayName:true,city:true,birthDate:true,relationshipGoal:true}}}});
+    const byId=new Map(profiles.map(x=>[x.id,x.profile]));
+    const previouslyLiked=await this.db.like.findMany({where:{fromId:req.authUserId,toId:{in:likes.map(x=>x.fromId)}},
+      select:{toId:true}});
+    const already=new Set(previouslyLiked.map(x=>x.toId));
+    return {likes:likes.flatMap(l=>{
+      const profile=byId.get(l.fromId);
+      if(!profile || excluded.has(l.fromId) || already.has(l.fromId))return [];
+      return [{id:l.fromId,name:profile.displayName,city:profile.city,
+        age:age(profile.birthDate),relationshipGoal:profile.relationshipGoal,receivedAt:l.createdAt}];
+    })};
+  }
+
   @Get('matches')
   async matches(@Req() req:AuthenticatedRequest) {
     await this.eligible(req.authUserId);
