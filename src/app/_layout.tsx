@@ -18,6 +18,7 @@ export default function RootLayout() {
         <Stack.Screen name="profile-photo" options={{ headerShown: false }} />
         <Stack.Screen name="verification" options={{ headerShown: false }} />
         <Stack.Screen name="profile" options={{ title: 'My profile' }} />
+        <Stack.Screen name="discover" options={{ headerShown: false }} />
         <Stack.Screen name="moderation" options={{ headerShown: false }} />
         <Stack.Screen name="preferences" options={{ title: 'Partner preferences' }} />
       </Stack>
