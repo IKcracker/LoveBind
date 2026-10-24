@@ -6,6 +6,7 @@ import { GoalChip } from '@/components/goal-picker';
 import { LoadingScreen, Notice, SectionLabel, StackScreen } from '@/components/member-ui';
 import { RELATIONSHIP_GOALS } from '@/lib/account';
 import { apiRequest } from '@/lib/api';
+import { GENDERS, type Gender } from '@/lib/genders';
 import { useSession, type Preferences } from '@/lib/session';
 
 function PreferencesEditor({ preferences, token, refresh }: {
@@ -17,6 +18,7 @@ function PreferencesEditor({ preferences, token, refresh }: {
   const [maxAge, setMaxAge] = useState(String(preferences?.maxAge ?? 35));
   const [cities, setCities] = useState(preferences?.preferredCities.join(', ') ?? '');
   const [goals, setGoals] = useState<string[]>(preferences?.relationshipGoals ?? []);
+  const [partnerGenders, setPartnerGenders] = useState<Gender[]>(preferences?.partnerGenders ?? []);
   const [busy, setBusy] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +39,7 @@ function PreferencesEditor({ preferences, token, refresh }: {
         minAge: lower, maxAge: upper,
         preferredCities: cities.split(',').map((s) => s.trim()).filter(Boolean),
         relationshipGoals: goals,
+        partnerGenders,
       }, token);
       await refresh();
       setSuccess(true);
@@ -49,6 +52,10 @@ function PreferencesEditor({ preferences, token, refresh }: {
   const options = [...RELATIONSHIP_GOALS, ...goals.filter(goal => !RELATIONSHIP_GOALS.includes(goal))];
   return <StackScreen title="Partner preferences">
     <Text style={styles.intro}>Discover only shows people who fit your preferences, and whose preferences you fit too.</Text>
+    <SectionLabel>Who I want to meet</SectionLabel>
+    <Text style={styles.help}>Choose genders you are open to. Leave all unselected for everyone.</Text>
+    <View style={styles.chips}>{GENDERS.map(option => <GoalChip key={option.value} label={option.label} selected={partnerGenders.includes(option.value)}
+      onPress={() => setPartnerGenders(current => current.includes(option.value) ? current.filter(value => value !== option.value) : [...current, option.value])} />)}</View>
     <SectionLabel>Age range</SectionLabel>
     <View style={styles.row}>
       <View style={styles.half}><AuthField label="From" value={minAge} onChangeText={setMinAge} keyboardType="number-pad" maxLength={3} /></View>

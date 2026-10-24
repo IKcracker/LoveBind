@@ -8,7 +8,7 @@
     "start": "node dist/main.js",
     "build": "npm run prisma:generate && tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "node --test --require ts-node/register src/modules/compatibility/scoring.test.ts src/modules/auth/auth.validation.test.ts src/modules/moderation/activation.test.ts",
+    "test": "node --test --require ts-node/register src/modules/compatibility/scoring.test.ts src/modules/auth/auth.validation.test.ts src/modules/moderation/activation.test.ts src/modules/discovery/eligibility.test.ts",
     "prisma:generate": "node scripts/prisma-cli.cjs generate",
     "prisma:validate": "node scripts/prisma-cli.cjs validate",
     "prisma:migrate": "node scripts/prisma-cli.cjs migrate dev",
@@ -32,5 +32,9 @@
     "prisma": "^6.19.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.0"
+  },
+  "overrides": {
+    "multer": "2.5.0",
+    "deepmerge-ts": "8.0.2"
   }
 }

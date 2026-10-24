@@ -30,6 +30,7 @@ coverage/
 *.secrets
 
 # Local artifacts
+.tmp/
 .metro-health-check*
 npm-debug.*
 yarn-debug.*

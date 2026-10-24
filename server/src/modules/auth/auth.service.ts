@@ -70,11 +70,11 @@ export class AuthService {
         id: true, status: true, adminApprovalStatus: true, createdAt: true,
         credential: { select: { email: true } },
         profile: { select: {
-          displayName: true, birthDate: true, bio: true, city: true, cityPlaceId: true,
+          displayName: true, gender: true, birthDate: true, bio: true, city: true, cityPlaceId: true,
           relationshipGoal: true, occupation: true, interests: true, coreValues: true, photoReviewStatus: true, isVisible: true,
         } },
         identityVerification: { select: { status: true, ageEvidenceStatus: true } },
-        preferences: { select: { minAge: true, maxAge: true, preferredCities: true, relationshipGoals: true } },
+        preferences: { select: { minAge: true, maxAge: true, preferredCities: true, relationshipGoals: true, partnerGenders: true } },
       },
     });
   }

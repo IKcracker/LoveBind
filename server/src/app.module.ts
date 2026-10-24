@@ -9,9 +9,10 @@ import { PhotosModule } from './modules/photos/photos.module';
 import { LocationsModule } from './modules/locations/locations.module';
 import { ModerationModule } from './modules/moderation/moderation.module';
 import { DiscoveryModule } from './modules/discovery/discovery.module';
+import { SafetyModule } from './modules/safety/safety.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, ProfilesModule, PreferencesModule, VerificationModule, PhotosModule, LocationsModule, ModerationModule, DiscoveryModule],
+  imports: [PrismaModule, AuthModule, ProfilesModule, PreferencesModule, VerificationModule, PhotosModule, LocationsModule, ModerationModule, DiscoveryModule, SafetyModule],
   controllers: [HealthController],
 })
 export class AppModule {}

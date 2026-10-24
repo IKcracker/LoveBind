@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { MemberSafetyLink } from '@/components/member-safety-link';
 import { Love } from '@/components/auth-screens';
 import { Avatar, Card, EmptyState, LockedState, Notice, PageTitle, TabScreen } from '@/components/member-ui';
 import { useApiQuery } from '@/hooks/use-api-query';
@@ -39,6 +40,7 @@ export default function Matches() {
                 <Avatar name={m.name} size={50} />
                 <View style={styles.info}>
                   <Text style={styles.name}>{m.name}</Text>
+                  <MemberSafetyLink memberId={m.memberId} name={m.name} matchId={m.id} />
                   <Text style={styles.meta} numberOfLines={1}>{m.city || 'Location undisclosed'} · Matched {new Date(m.createdAt).toLocaleDateString()}</Text>
                 </View>
               </View>

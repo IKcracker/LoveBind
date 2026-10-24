@@ -3,15 +3,17 @@ import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { AuthField, FormButton, FormError, Love } from '@/components/auth-screens';
 import { CityPicker } from '@/components/city-picker';
-import { GoalPicker } from '@/components/goal-picker';
+import { GoalChip, GoalPicker } from '@/components/goal-picker';
 import { LoadingScreen, Notice, SectionLabel, StackScreen } from '@/components/member-ui';
 import { apiRequest } from '@/lib/api';
+import { GENDERS, type Gender } from '@/lib/genders';
 import { useSession, type Profile } from '@/lib/session';
 
 type EditorProps = { profile: Profile; token: string; refresh: () => Promise<void> };
 function csv(value: string): string[] { return [...new Set(value.split(',').map(v => v.trim()).filter(Boolean))]; }
 
 function ProfileEditor({ profile, token, refresh }: EditorProps) {
+  const [gender, setGender] = useState<Gender | null>(profile.gender ?? null);
   const [name, setName] = useState(profile.displayName);
   const [city, setCity] = useState(profile.city ?? '');
   const [cityPlaceId, setCityPlaceId] = useState(profile.cityPlaceId ?? null);
@@ -31,7 +33,7 @@ function ProfileEditor({ profile, token, refresh }: EditorProps) {
     setBusy(true); setSaved(false); setError(null);
     try {
       await apiRequest('/profiles/me', 'PUT', {
-        displayName: name, city, cityPlaceId, bio, relationshipGoal: goal, occupation,
+        displayName: name, gender, city, cityPlaceId, bio, relationshipGoal: goal, occupation,
         interests: csv(interests), coreValues: csv(values),
       }, token);
       await refresh(); setSaved(true);
@@ -40,9 +42,13 @@ function ProfileEditor({ profile, token, refresh }: EditorProps) {
   }
 
   return <StackScreen title="Edit profile">
-    <Text style={s.intro}>Make it sound like you. Changes to an approved profile are visible to your matches straight away.</Text>
+    <Text style={s.intro}>Make it sound like you. Changes to your display name or introduction need review and hide your profile until approved. Other edits keep your approval.</Text>
     <SectionLabel>The basics</SectionLabel>
     <AuthField label="Display name" value={name} onChangeText={setName} maxLength={60} />
+    <SectionLabel>My gender</SectionLabel>
+    <View style={s.chips}>{GENDERS.map(option => <GoalChip key={option.value} label={option.label} selected={gender === option.value} onPress={() => setGender(option.value)} />)}
+      <GoalChip label="Prefer not to say" selected={gender === null} onPress={() => setGender(null)} /></View>
+    <Text style={s.intro}>If you leave gender unspecified, you appear only to people open to all genders.</Text>
     <CityPicker token={token} city={city} placeId={cityPlaceId} onSelect={(name,id)=>{setCity(name);setCityPlaceId(id);}} />
     <AuthField label="Occupation" value={occupation} onChangeText={setOccupation} placeholder="Optional" maxLength={100}/>
     <SectionLabel>Looking for</SectionLabel>
@@ -67,6 +73,7 @@ export default function EditProfileScreen() {
 }
 
 const s = StyleSheet.create({
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   intro: { fontSize: 14, lineHeight: 22, color: Love.muted },
   bio: { height: 145, textAlignVertical: 'top' },
   actions: { marginTop: 4 },
