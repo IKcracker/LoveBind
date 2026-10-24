@@ -66,12 +66,56 @@ module.exports = async function phase1(call, adminToken) {
     const match = await db.match.findUnique({ where: { id: matched.json.matchId }, include: { conversation: true } });
     assert.ok(match.conversation, 'mutual likes create a private conversation record');
     assert.deepEqual([match.userAId, match.userBId], [a.id, b.id].sort(), 'canonical pair');
+
+    const chatPath='/conversations/'+match.id+'/messages';
+    assert.equal((await call(chatPath)).status,401,'private chat requires login');
+    assert.equal((await call(chatPath,'GET',undefined,c.token)).status,404,
+      'third-party member cannot access private chat');
+    assert.equal((await call(chatPath,'GET',undefined,adminToken)).status,404,
+      'admin credentials cannot read member conversations');
+    assert.equal((await call(chatPath,'POST',{content:' '},a.token)).status,400,
+      'blank messages are rejected');
+    assert.equal((await call(chatPath,'POST',{content:'X'.repeat(1501)},a.token)).status,400,
+      'overlong messages are rejected');
+    const firstMessage=await call(chatPath,'POST',{content:'Hello from the safety test'},a.token);
+    assert.equal(firstMessage.status,201,'matched adults can send messages');
+    assert.equal(firstMessage.json.message.content,'Hello from the safety test');
+    const stored=await db.message.findUnique({where:{id:firstMessage.json.message.id}});
+    assert.ok(stored.content.startsWith('enc1.'),'private messages must be encrypted at rest');
+    assert.ok(!stored.content.includes('Hello from the safety test'),'raw message must never be in database');
+    assert.equal((await call(chatPath,'POST',{content:'Please do not spam'},a.token)).status,429,
+      'rapid messages are rate limited');
+    const readB=await call(chatPath,'GET',undefined,b.token);
+    assert.equal(readB.status,200,'other matched member can read chat');
+    assert.equal(readB.json.messages[0].content,'Hello from the safety test');
+    assert.equal((await call(chatPath+'?cursor=not-your-message','GET',undefined,b.token)).status,400,
+      'message cursors must belong to the conversation');
+    const {encryptMessage}=require('../dist/modules/conversations/message-crypto.js');
+    const older=Array.from({length:35},(_,i)=>({
+      conversationId:match.conversation.id,senderId:a.id,
+      content:encryptMessage('Earlier message '+i),
+      createdAt:new Date(Date.now()-(120000-i*1000)),
+    }));
+    await db.message.createMany({data:older});
+    const firstPage=await call(chatPath,'GET',undefined,b.token);
+    assert.equal(firstPage.json.messages.length,30,'chat history pages at 30');
+    assert.ok(firstPage.json.nextCursor,'history with older messages provides next cursor');
+    const secondPage=await call(chatPath+'?cursor='+encodeURIComponent(firstPage.json.nextCursor),'GET',undefined,b.token);
+    assert.equal(secondPage.json.messages.length,6,'older page contains remaining messages');
+    assert.equal(secondPage.json.nextCursor,null,'final history page stops pagination');
+    assert.ok(!firstPage.json.messages.some(x=>secondPage.json.messages.some(y=>x.id===y.id)),
+      'chat pagination has no overlapping messages');
     await call('/profiles/me/visibility', 'PUT', { visible: false }, b.token);
     assert.ok((await call('/discovery/matches', 'GET', undefined, a.token)).json.matches.some(x => x.id === match.id), 'hide from discovery retains existing matches');
     await call('/profiles/me/visibility', 'PUT', { visible: true }, b.token);
     assert.equal((await call('/safety/matches/' + match.id + '/unmatch', 'POST', {}, c.token)).status, 404, 'outsider cannot unmatch');
 
     assert.equal((await block(b, a)).status, 201);
+    assert.equal((await call(chatPath,'GET',undefined,a.token)).status,404,
+      'blocked pairs cannot read old messages');
+    assert.equal((await call(chatPath,'POST',{content:'Bypass blocked user'},a.token)).status,404,
+      'blocked pairs cannot send new messages');
+
     assert.equal((await block(b, a)).status, 201, 'block idempotent');
     for (const m of [a, b]) {
       assert.equal((await call('/discovery/matches', 'GET', undefined, m.token)).json.matches.length, 0, 'block removes matches both ways');
