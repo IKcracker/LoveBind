@@ -1,4 +1,3 @@
-import { MemberTabBar } from '@/components/member-tab-bar';
 import { Redirect, router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -38,11 +37,11 @@ export default function Connections(){
   {matches?.length===0&&!error?<View style={s.panel}>
    <Text style={s.panelTitle}>Great connections take two.</Text>
    <Text style={s.description}>You have not matched yet. Browse verified members and express interest when someone feels right.</Text>
-   <FormButton text="Discover members" onPress={()=>router.push('/discover')}/>
+   <FormButton text="Discover members" onPress={()=>router.push('/(member)/discover')}/>
   </View>:null}
   {matches?.length? <View style={s.panel}><Text style={s.panelTitle}>What happens next?</Text><Text style={s.description}>We are building private conversations and a shared compatibility quiz. We will not display fake conversations or enable date bookings before those safety checks are ready.</Text></View>:null}
   <Pressable onPress={()=>void refresh()}><Text style={[s.link,{textAlign:'center',padding:15}]}>Refresh connections</Text></Pressable>
- </ScrollView><MemberTabBar active="connections" approved={user.status === 'ACTIVE'}/></View></SafeAreaView>;
+ </ScrollView></View></SafeAreaView>;
 }
 const s=StyleSheet.create({safe:{flex:1,backgroundColor:Love.paper},center:{flex:1,justifyContent:'center',alignItems:'center'},
  content:{maxWidth:540,width:'100%',alignSelf:'center',padding:24,paddingBottom:45,gap:18},
