@@ -77,7 +77,7 @@ function WelcomeScreen() {
                   Already a member? <Text style={styles.signInEmphasis}>Sign in</Text>
                 </Text>
               </Pressable>
-              <Text style={styles.disclaimer}>LoveBind is in development. Matching and dates are not yet available.</Text>
+              <Text style={styles.disclaimer}>LoveBind is in development. Matches are available to approved members. Date scheduling is coming later.</Text>
             </View>
           </View>
         </ScrollView>
@@ -95,6 +95,7 @@ export default function Index() {
   );
   if (!user) return <WelcomeScreen />;
   if (!user.profile?.city || !user.profile?.relationshipGoal || !user.profile?.bio) return <Redirect href="/onboarding" />;
+  if (user.status === 'ACTIVE') return <Redirect href="/(member)/discover" />;
   return <MemberHome />;
 }
 
