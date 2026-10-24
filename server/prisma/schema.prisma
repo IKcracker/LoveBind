@@ -47,6 +47,13 @@ enum MessageStatus {
   DELETED
 }
 
+enum Gender {
+  WOMAN
+  MAN
+  NON_BINARY
+  OTHER
+}
+
 model User {
   id          String @id @default(cuid())
   authSubject String @unique
@@ -68,6 +75,8 @@ model User {
   blocksReceived Block[] @relation("Blocked")
   reportsMade  SafetyReport[] @relation("Reporter")
   reportsAbout SafetyReport[] @relation("Reported")
+  passesSent Pass[] @relation("Passer")
+  passesReceived Pass[] @relation("Passed")
   credential   EmailCredential?
   sessions     AuthSession[]
   consents     ConsentRecord[]
@@ -83,6 +92,7 @@ model Profile {
   userId String @id
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
   displayName String
+  gender Gender?
   birthDate DateTime @db.Date
   city String?
   cityPlaceId String? @db.VarChar(255)
@@ -106,6 +116,7 @@ model PartnerPreference {
   maxAge Int
   preferredCities String[]
   relationshipGoals String[]
+  partnerGenders Gender[] @default([])
   updatedAt DateTime @updatedAt
 }
 
@@ -258,6 +269,18 @@ model Block {
   blocked User @relation("Blocked", fields: [blockedId], references: [id])
   createdAt DateTime @default(now())
   @@unique([blockerId, blockedId])
+  @@index([blockedId])
+}
+
+model Pass {
+  id String @id @default(cuid())
+  fromId String
+  toId String
+  from User @relation("Passer", fields: [fromId], references: [id], onDelete: Cascade)
+  to User @relation("Passed", fields: [toId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  @@unique([fromId, toId])
+  @@index([toId])
 }
 
 model SafetyReport {
@@ -269,7 +292,12 @@ model SafetyReport {
   category String
   details String? @db.VarChar(2000)
   status ReportStatus @default(OPEN)
+  reviewedBy String?
+  resolution String? @db.VarChar(2000)
+  reviewedAt DateTime?
   createdAt DateTime @default(now())
+  @@index([status, createdAt])
+  @@index([reporterId, createdAt])
 }
 
 model ConsentRecord {

@@ -26,6 +26,8 @@ function RootNavigator() {
         <Stack.Screen name="edit-profile" />
         <Stack.Screen name="preferences" />
         <Stack.Screen name="moderation" />
+        <Stack.Screen name="member-safety" />
+        <Stack.Screen name="blocked-members" />
       </Stack.Protected>
     </Stack>
   );

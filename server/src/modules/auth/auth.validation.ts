@@ -1,4 +1,12 @@
 import { BadRequestException } from '@nestjs/common';
+import { Gender } from '@prisma/client';
+
+function parseGender(value: unknown): Gender {
+  if (typeof value !== 'string' || !Object.values(Gender).includes(value as Gender)) {
+    throw new BadRequestException('Select a valid gender');
+  }
+  return value as Gender;
+}
 
 type Input = Record<string, unknown>;
 function record(value: unknown): Input {
@@ -73,6 +81,7 @@ export function parseShortList(value: unknown, field: string, limit = 8): string
 export function parseProfile(value: unknown) {
   const body = record(value);
   return {
+    ...(body.gender === undefined ? {} : { gender: body.gender === null ? null : parseGender(body.gender) }),
     ...(body.displayName === undefined ? {} : { displayName: requiredText(body.displayName, 'displayName', 2, 60) }),
     ...(body.city === undefined ? {} : { city: optionalText(body.city, 'city', 100) }),
     ...(body.cityPlaceId === undefined ? {} : { cityPlaceId: optionalText(body.cityPlaceId, 'cityPlaceId', 255) }),
@@ -98,6 +107,14 @@ export function parsePreferences(value: unknown) {
     return [...new Set((input as string[]).map((x) => x.trim()))];
   };
   return {
+    ...(body.partnerGenders === undefined ? {} : {
+      partnerGenders: (() => {
+        if (!Array.isArray(body.partnerGenders) || body.partnerGenders.length > 4) {
+          throw new BadRequestException('partnerGenders must be a list of up to 4 genders');
+        }
+        return [...new Set(body.partnerGenders.map(parseGender))];
+      })(),
+    }),
     minAge: minAge as number,
     maxAge: maxAge as number,
     preferredCities: parseArray(preferredCities, 'preferredCities', 10),

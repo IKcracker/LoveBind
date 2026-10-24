@@ -1,4 +1,7 @@
 /* Exercises a temporary, isolated PostgreSQL database in CI only. */
+if (process.env.NODE_ENV !== 'test' || process.env.CI !== '1') {
+  throw new Error('Integration smoke requires NODE_ENV=test and CI=1 with a disposable PostgreSQL database');
+}
 const assert = require('node:assert/strict');
 const { spawn } = require('node:child_process');
 const { randomUUID } = require('node:crypto');
@@ -196,6 +199,7 @@ async function smoke() {
   assert.equal(prefs.status, 200, 'preference creation works');
   const again = await call('/preferences/me', 'GET', undefined, token);
   assert.equal(again.json.minAge, 23, 'preference persisted');
+  await require('./phase1-integration.cjs')(call, adminToken);
   const login = await call('/auth/login', 'POST', { email, password: registration.password });
   assert.equal(login.status, 201, 'sign-in succeeds');
   assert.ok(login.json.accessToken);

@@ -2,13 +2,16 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { apiRequest, ApiError } from './api';
+import type { Gender } from './genders';
 
 export type Profile = {
+  gender?: Gender | null;
   displayName: string; birthDate: string; city: string | null; cityPlaceId?: string | null;
   bio: string | null; relationshipGoal: string | null; isVisible: boolean;
   occupation?: string | null; interests?: string[]; coreValues?: string[]; photoReviewStatus?: string;
 };
 export type Preferences = {
+  partnerGenders?: Gender[];
   minAge: number; maxAge: number; preferredCities: string[]; relationshipGoals: string[];
 };
 export type CurrentUser = {

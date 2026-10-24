@@ -64,7 +64,7 @@ export default function ProfileTab() {
 
       <SectionLabel>Dating</SectionLabel>
       <Card style={styles.list}>
-        <ListRow icon="tune" label="Partner preferences" detail="Age range, cities and relationship goals" href="/preferences" last={!progress.active} />
+        <ListRow icon="tune" label="Partner preferences" detail="Genders, age range, cities and relationship goals" href="/preferences" last={!progress.active} />
         {progress.active ? (
           <ListRow icon="eye" label="Show me in Discover" detail={profile.isVisible ? 'Eligible members can find you' : 'You are hidden from new people'} last
             right={<Switch value={profile.isVisible} disabled={busy} onValueChange={v => { void setVisible(v); }}
@@ -75,6 +75,7 @@ export default function ProfileTab() {
 
       <SectionLabel>Trust & safety</SectionLabel>
       <Card style={styles.list}>
+        <ListRow icon="shield" label="Blocked members" detail="Manage who can contact you" href="/blocked-members" />
         <ListRow icon="shield" label="Identity verification" detail={identityDone ? 'Verified' : 'Required before you can be discovered'} href="/verification" />
         <ListRow icon="camera" label="Profile photo" detail={progress.steps.find(step => step.key === 'photo')?.detail} href="/profile-photo" last={!moderation.data?.canModerate} />
         {moderation.data?.canModerate ? <ListRow icon="admin" label="Photo moderation" detail="Review pending member photos" href="/moderation" last /> : null}

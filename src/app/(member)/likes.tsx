@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { MemberSafetyLink } from '@/components/member-safety-link';
 import { Love } from '@/components/auth-screens';
 import { Avatar, Card, EmptyState, LockedState, Notice, PageTitle, TabScreen } from '@/components/member-ui';
 import { useApiQuery } from '@/hooks/use-api-query';
@@ -48,6 +49,7 @@ export default function Likes() {
           <Avatar name={person.name} size={58} />
           <View style={styles.info}>
             <Text style={styles.name}>{person.name}, {person.age}</Text>
+            <MemberSafetyLink memberId={person.id} name={person.name} />
             <Text style={styles.meta} numberOfLines={1}>{person.city || 'Location undisclosed'}</Text>
             <Text style={styles.meta} numberOfLines={1}>{person.relationshipGoal || 'Looking for a connection'}</Text>
           </View>

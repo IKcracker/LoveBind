@@ -4,6 +4,7 @@ import { AuthGuard, AuthenticatedRequest } from '../auth/auth.guard';
 import { parseProfile } from '../auth/auth.validation';
 import { PrismaService } from '../../prisma/prisma.service';
 import { eligibleForAdminApproval, reconcileAccount } from '../moderation/activation';
+import { requiresProfileReview } from './approval-policy';
 
 @Controller('profiles')
 @UseGuards(AuthGuard)
@@ -49,14 +50,16 @@ export class ProfileController {
       throw new BadRequestException('Select your city from the suggestions');
     }
     return this.prisma.$transaction(async tx => {
-      const profile = await tx.profile.update({
-      where: { userId: request.authUserId },
-      data: fields,
-      select: { displayName: true, city: true, cityPlaceId: true, bio: true, relationshipGoal: true, occupation: true, interests: true, coreValues: true, photoReviewStatus: true, isVisible: true },
+      const before = await tx.profile.findUniqueOrThrow({ where: { userId: request.authUserId } });
+      await tx.profile.update({
+        where: { userId: request.authUserId },
+        data: fields,
       });
-      await tx.user.update({ where: { id: request.authUserId }, data: { adminApprovalStatus: 'PENDING' } });
+      if (requiresProfileReview(before, fields)) {
+        await tx.user.update({ where: { id: request.authUserId }, data: { adminApprovalStatus: 'PENDING' } });
+      }
       await reconcileAccount(tx, request.authUserId);
-      return profile;
+      return tx.profile.findUniqueOrThrow({ where: { userId: request.authUserId } });
     });
   }
 }

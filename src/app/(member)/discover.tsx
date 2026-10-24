@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { FormButton, Love, serif } from '@/components/auth-screens';
+import { MemberSafetyLink } from '@/components/member-safety-link';
 import { Icon } from '@/components/icon';
 import { Card, EmptyState, IconButton, LockedState, Notice, PageTitle, TabScreen, Tag } from '@/components/member-ui';
 import { useApiQuery } from '@/hooks/use-api-query';
@@ -20,7 +21,6 @@ export default function Discover() {
   const { user, token, refresh } = useSession();
   const active = user?.status === 'ACTIVE';
   const query = useApiQuery<Result>(active ? '/discovery' : null, token);
-  const [skipped, setSkipped] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
 
@@ -49,9 +49,14 @@ export default function Discover() {
     finally { setBusy(false); }
   }
 
-  function pass(id: string) {
-    setFeedback(null);
-    setSkipped(current => [...current, id]);
+  async function pass(id: string) {
+    if (!token || busy) return;
+    setBusy(true); setFeedback(null);
+    try {
+      await apiRequest('/discovery/' + encodeURIComponent(id) + '/pass', 'POST', {}, token);
+      query.mutate(data => ({ ...data, candidates: data.candidates.filter(c => c.id !== id) }));
+    } catch (e) { setFeedback({ tone: 'error', message: e instanceof Error ? e.message : 'Unable to pass. Try again.' }); }
+    finally { setBusy(false); }
   }
 
   const filtersButton = <IconButton icon="tune" label="Partner preferences" onPress={() => router.push('/preferences')} />;
@@ -59,11 +64,11 @@ export default function Discover() {
 
   if (!active) return <TabScreen>{header}<LockedState feature="Discover" /></TabScreen>;
 
-  const candidates = query.data?.candidates.filter(c => !skipped.includes(c.id)) ?? [];
+  const candidates = query.data?.candidates ?? [];
   const card = candidates[0];
 
   return (
-    <TabScreen refreshing={query.refreshing} onRefresh={() => { setSkipped([]); query.pullToRefresh(); }}>
+    <TabScreen refreshing={query.refreshing} onRefresh={() => { query.pullToRefresh(); }}>
       {header}
       {feedback ? <Notice tone={feedback.tone} message={feedback.message}
         actionLabel={feedback.matched ? 'Go to matches' : undefined} onAction={feedback.matched ? () => router.navigate('/matches') : undefined} /> : null}
@@ -106,6 +111,7 @@ export default function Discover() {
             </View>
           </View>
           <View style={styles.details}>
+            <MemberSafetyLink memberId={card.id} name={card.name} />
             {card.bio ? <Text style={styles.bio}>{card.bio}</Text> : null}
             <Text style={styles.section}>LOOKING FOR</Text>
             <Text style={styles.detail}>{card.relationshipGoal || 'A genuine connection'}</Text>
@@ -116,8 +122,8 @@ export default function Discover() {
           </View>
           <View style={styles.actions}>
             <View style={styles.action}>
-              <IconButton icon="close" label={'Pass on ' + card.name} tone="outline" size={64} disabled={busy} onPress={() => pass(card.id)} />
-              <Text style={styles.actionLabel}>Not now</Text>
+              <IconButton icon="close" label={'Pass on ' + card.name} tone="outline" size={64} disabled={busy} onPress={() => { void pass(card.id); }} />
+              <Text style={styles.actionLabel}>Pass</Text>
             </View>
             <View style={styles.action}>
               <IconButton icon="heartFill" label={'Like ' + card.name} tone="wine" size={72} disabled={busy} onPress={() => { void like(card.id); }} />
@@ -131,7 +137,7 @@ export default function Discover() {
         <EmptyState icon="sparkles" title="You're all caught up."
           body="No new people currently match both your preferences and theirs. Check back soon, or widen what you're looking for."
           actionLabel="Edit preferences" onAction={() => router.push('/preferences')}
-          secondaryLabel="Refresh" onSecondary={() => { setSkipped([]); query.reload(); }} />
+          secondaryLabel="Refresh" onSecondary={() => { query.reload(); }} />
       ) : null}
     </TabScreen>
   );

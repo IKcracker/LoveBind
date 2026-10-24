@@ -8,7 +8,8 @@ import {
 import { request, baseUrl, type Activity as ActivityData, type MemberDetail,
   type MemberList, type Overview, type PhotoQueue } from './api';
 
-type View='overview'|'members'|'photos'|'activity';
+import { SafetyReports } from './SafetyReports';
+type View='overview'|'members'|'photos'|'activity'|'reports';
 type Intent={kind:'photo'|'account';id:string;name:string;decision:'APPROVED'|'REJECTED'};
 const DATE=(x:string|undefined|null)=>x?new Date(x).toLocaleDateString('en-ZA',{day:'numeric',month:'short',year:'numeric'}):'—';
 const DATE_TIME=(x:string|undefined|null)=>x?new Date(x).toLocaleString('en-ZA',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
@@ -187,6 +188,7 @@ export default function App(){
   ['overview',<LayoutDashboard size={19}/>, 'Overview'],
   ['members',<Users size={19}/>, 'Members'],
   ['photos',<Images size={19}/>, 'Photo reviews'],
+  ['reports',<ShieldAlert size={19}/>, 'Safety reports'],
   ['activity',<Activity size={19}/>, 'Audit activity'],
  ];
  const selectedName=detail?.profile?.displayName??'Member';
@@ -264,6 +266,7 @@ export default function App(){
        <button className="btn btn-subtle-danger" title="Reject photograph" onClick={()=>prepare('photo',photo.userId,photo.displayName,'REJECTED')}><X size={17}/></button></div>
      </article>)}</div>:<div className="empty-large"><div className="empty-icon"><Images size={28}/></div><h2>No photos awaiting review</h2><p>New profile photographs will appear here after upload.</p></div>}
     </>}
+    {view==='reports'&&<SafetyReports token={token} openMember={id => { void openMember(id); }} />}
     {view==='activity'&&<>
       <SectionTitle eyebrow="TRANSPARENCY & ACCOUNTABILITY" title="Audit activity." description="A chronological record of account and photo moderation decisions."
       action={<button className="btn btn-white" onClick={()=>void refresh()}><RefreshCw size={16}/> Refresh history</button>}/>
