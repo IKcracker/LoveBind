@@ -1,13 +1,13 @@
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, Text, View, StyleSheet } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthField, BrandLockup, FormButton, FormError, Love, serif } from '@/components/auth-screens';
 import { useSession } from '@/lib/session';
 import { apiRequest } from '@/lib/api';
 
 export default function Onboarding() {
-  const { user, token, refresh } = useSession();
+  const { user, token, refresh, loading } = useSession();
   const [city, setCity] = useState(user?.profile?.city ?? '');
   const [bio, setBio] = useState(user?.profile?.bio ?? '');
   const [goal, setGoal] = useState(user?.profile?.relationshipGoal ?? '');
@@ -30,6 +30,8 @@ export default function Onboarding() {
     } finally { setBusy(false); }
   }
 
+  if (loading) return <View style={styles.loading}><ActivityIndicator color={Love.wine}/></View>;
+  if (!user || !token) return <Redirect href="/login" />;
   return <SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
     <BrandLockup />
     <Text style={styles.progress}>01 / 02 · YOUR STORY</Text>
@@ -44,6 +46,7 @@ export default function Onboarding() {
 }
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Love.paper },
+  loading: { flex: 1, backgroundColor: Love.paper, justifyContent: 'center', alignItems: 'center' },
   content: { padding: 26, gap: 20, maxWidth: 500, width: '100%', alignSelf: 'center' },
   progress: { color: Love.wine, fontSize: 11, letterSpacing: 1.5, marginTop: 26, fontWeight: '700' },
   head: { fontFamily: serif, fontSize: 42, color: Love.ink },
