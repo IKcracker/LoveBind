@@ -51,7 +51,7 @@ function obj(input: unknown): Obj | null {
 }
 
 function cleanDate(input: unknown): string | null {
-  if (typeof input !== 'string' || !/^\\d{4}-\\d{2}-\\d{2}$/.test(input)) return null;
+  if (typeof input !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(input)) return null;
   const dt = new Date(input + 'T00:00:00Z');
   return Number.isNaN(dt.getTime()) || dt.toISOString().slice(0, 10) !== input ? null : input;
 }
