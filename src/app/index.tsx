@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useWindowDimensions, ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -114,7 +114,9 @@ export default function Index() {
       <ActivityIndicator color={Love.wine} accessibilityLabel="Loading LoveBind" />
     </View>
   );
-  return user ? <AccountHome /> : <WelcomeScreen />;
+  if (!user) return <WelcomeScreen />;
+  if (!user.profile?.city || !user.profile?.relationshipGoal || !user.profile?.bio) return <Redirect href="/onboarding" />;
+  return <AccountHome />;
 }
 
 const styles = StyleSheet.create({
