@@ -1,3 +1,4 @@
+import { MemberTabBar } from '@/components/member-tab-bar';
 import { Redirect, router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -44,8 +45,8 @@ export default function Discover() {
  if(loading)return <View style={s.center}><ActivityIndicator color={Love.wine}/></View>;
  if(!user||!token)return <Redirect href="/login"/>;
  const card=data?.candidates[0];
- return <SafeAreaView style={s.safe}><ScrollView contentContainerStyle={s.content}>
-  <View style={s.top}><BrandLockup/><Pressable onPress={()=>router.replace('/')}><Text style={s.link}>Home →</Text></Pressable></View>
+ return <SafeAreaView style={s.safe}><View style={{flex:1}}><ScrollView contentContainerStyle={s.content}>
+  <View style={s.top}><BrandLockup/></View>
   <Text style={s.kicker}>DISCOVER · REAL CONNECTIONS</Text>
   <Text style={s.title}>Find your kind of person.</Text>
   <Text style={s.sub}>Every profile is verified, photo-approved and chosen using mutual age, location and relationship preferences.</Text>
@@ -79,7 +80,7 @@ export default function Discover() {
     <FormButton text="Refresh discovery" secondary onPress={()=>void load()}/>
   </View>:null}
   {!data&&!error?<ActivityIndicator color={Love.wine}/>:null}
- </ScrollView></SafeAreaView>;
+ </ScrollView><MemberTabBar active="discover" approved={user.status === 'ACTIVE'}/></View></SafeAreaView>;
 }
 const s=StyleSheet.create({
  safe:{flex:1,backgroundColor:Love.paper},center:{flex:1,justifyContent:'center',alignItems:'center'},
