@@ -23,3 +23,35 @@ We use Didit's hosted verification UI: LoveBind does not capture or store nation
 - Launch requires rate limiting, fraud/bot mitigation, consent/privacy policy, retention/deletion controls, status reconciliation (including webhook signatures), access logs and verified age outcome.
 - Profile photo uploading requires a separate private object storage and moderation pipeline. The current UI does not upload profile photos.
 - Never upload real IDs in sandbox.
+
+## Troubleshooting: session creation returns 502
+
+LoveBind now maps known Didit HTTP statuses to safe error codes, with short
+server-side logs like `Didit create-session: upstream HTTP 401`. It never logs
+API keys, session URLs, provider response text, ID numbers or selfie details.
+
+Read the Render logs for the API service that handled the attempt:
+
+- **HTTP 400 or 422**: rejected payload or workflow. Confirm that
+  `DIDIT_WORKFLOW_ID` is the ID of a published/active workflow.
+- **HTTP 401**: API key rejected. Use the **application API key**, not the
+  webhook signing secret.
+- **HTTP 403**: permissions or application/workflow mismatch; verify that
+  both credentials belong to the same Didit application and environment.
+- **HTTP 404**: workflow/session not found in the current application.
+- **HTTP 402**: credits/balance issue may be preventing verification.
+- **HTTP 429**: rate limited.
+- **HTTP 5xx**: Didit service issue.
+- **Malformed successful response**: Didit did not return a session ID and
+  valid hosted URL, or their response format changed.
+- **Network failure**: Render could not reach Didit or the request timed out.
+
+The backend never accepts arbitrary verification URL redirects. It accepts
+HTTPS links on `didit.me` domains, and also normalizes Didit's documented
+`verify.didit.me/...` format if the protocol is omitted.
+
+Before investigating, confirm Render has deployed a commit containing these
+changes and the same live Render service has both `DIDIT_API_KEY` and
+`DIDIT_WORKFLOW_ID`. Changing Expo code alone cannot fix the backend's
+upstream Didit request. Never send credentials or provider response bodies
+in a screenshot or support message.
