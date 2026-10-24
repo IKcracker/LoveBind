@@ -1,0 +1,37 @@
+name: Import LoveBind welcome photograph
+on:
+  push:
+    branches: [feat/lovebind-dev-foundation]
+permissions:
+  contents: write
+jobs:
+  import-image:
+    if: github.repository == 'IKcracker/LoveBind'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download licensed image for offline mobile use
+        run: |
+          set -euo pipefail
+          if [ -f assets/images/lovebind-hero.jpg ]; then
+            echo "The background image is already bundled."
+            exit 0
+          fi
+          mkdir -p assets/images
+          curl --fail --location --retry 3 --connect-timeout 15 --max-time 90 \
+            "https://images.unsplash.com/photo-1771946892179-41c95be77cfd?fm=jpg&fit=crop&w=1200&h=1800&q=80" \
+            --output assets/images/lovebind-hero.jpg
+          file assets/images/lovebind-hero.jpg | grep -q "JPEG image data"
+          test "$(wc -c < assets/images/lovebind-hero.jpg)" -gt 10000
+          test "$(wc -c < assets/images/lovebind-hero.jpg)" -lt 5000000
+      - name: Commit new local photo asset
+        run: |
+          git add assets/images/lovebind-hero.jpg
+          if ! git diff --cached --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "assets: bundle LoveBind welcome photo"
+            git pull --rebase origin feat/lovebind-dev-foundation
+            git push origin HEAD:refs/heads/feat/lovebind-dev-foundation
+          fi
