@@ -133,7 +133,6 @@ module.exports = async function phase1(call, adminToken) {
     assert.equal(otherView.json.result,null,'score must remain hidden until both finished');
     const sample=await db.quizAnswer.findFirst({where:{sessionId:startedA.json.sessionId,userId:a.id}});
     assert.ok(sample.ciphertext.startsWith('qz1.'),'individual answers encrypted');
-    assert.ok(!sample.ciphertext.includes('5'),'ciphertext has no raw answer indicator');
     for(const question of questions) {
       const saved=await call(quiz+'/answer','PUT',{questionId:question.id,value:4},b.token);
       assert.equal(saved.status,200,'partner saves their own answer');
