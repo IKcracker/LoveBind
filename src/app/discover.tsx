@@ -1,4 +1,3 @@
-import { MemberTabBar } from '@/components/member-tab-bar';
 import { Redirect, router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -21,7 +20,7 @@ export default function Discover() {
   try{setData(await apiRequest<Result>('/discovery','GET',undefined,token));setError('');}
   catch(e){setError(e instanceof Error?e.message:'Unable to load discovery');}
  },[token]);
- useEffect(()=>{void load()},[load]);
+ useEffect(()=>{void Promise.resolve().then(load);},[load]);
  async function optIn(visible:boolean) {
   if(!token||busy)return;
   setBusy(true);setError('');
@@ -80,7 +79,7 @@ export default function Discover() {
     <FormButton text="Refresh discovery" secondary onPress={()=>void load()}/>
   </View>:null}
   {!data&&!error?<ActivityIndicator color={Love.wine}/>:null}
- </ScrollView><MemberTabBar active="discover" approved={user.status === 'ACTIVE'}/></View></SafeAreaView>;
+ </ScrollView></View></SafeAreaView>;
 }
 const s=StyleSheet.create({
  safe:{flex:1,backgroundColor:Love.paper},center:{flex:1,justifyContent:'center',alignItems:'center'},
