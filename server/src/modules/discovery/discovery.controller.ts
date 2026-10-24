@@ -75,6 +75,38 @@ export class DiscoveryController {
     }));
     return {needsOptIn:false,candidates:cards};
   }
+  @Get('matches')
+  async matches(@Req() req:AuthenticatedRequest) {
+    await this.eligible(req.authUserId);
+    const matches=await this.db.match.findMany({where:{
+      status:'ACTIVE',OR:[{userAId:req.authUserId},{userBId:req.authUserId}]},
+      select:{id:true,userAId:true,userBId:true,createdAt:true,
+        conversation:{select:{id:true}},
+      },orderBy:{createdAt:'desc'},take:40});
+    const ids=matches.map(m=>m.userAId===req.authUserId?m.userBId:m.userAId);
+    const people=await this.db.user.findMany({where:{id:{in:ids}},select:{
+      id:true,status:true,adminApprovalStatus:true,
+      profile:{select:{displayName:true,city:true,isVisible:true,photoReviewStatus:true}},
+      identityVerification:{select:{status:true,ageEvidenceStatus:true}},
+    }});
+    const blocked=await this.db.block.findMany({where:{OR:[
+      {blockerId:req.authUserId},{blockedId:req.authUserId}]},
+      select:{blockerId:true,blockedId:true}});
+    const exclude=new Set(blocked.flatMap(x=>[x.blockerId,x.blockedId]));
+    const users=new Map(people.map(p=>[p.id,p]));
+    return {matches:matches.flatMap(m=>{
+      const otherId=m.userAId===req.authUserId?m.userBId:m.userAId;
+      const person=users.get(otherId);
+      if(!person || exclude.has(otherId) || person.status!=='ACTIVE' ||
+        person.adminApprovalStatus!=='APPROVED' ||
+        person.identityVerification?.status!=='Approved' ||
+        person.identityVerification.ageEvidenceStatus!=='VERIFIED' ||
+        person.profile?.photoReviewStatus!=='APPROVED' ||
+        !person.profile.isVisible) return [];
+      return [{id:m.id,memberId:otherId,name:person.profile.displayName,
+        city:person.profile.city,createdAt:m.createdAt,conversationId:m.conversation?.id??null}];
+    })};
+  }
   @Post(':id/like')
   async like(@Req() req:AuthenticatedRequest,@Param('id') id:string) {
     if(!/^[a-zA-Z0-9_-]{10,100}$/.test(id)||id===req.authUserId)
