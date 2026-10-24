@@ -11,7 +11,6 @@ function age(birth: Date, now: Date): number {
 
 export function eligibleForAdminApproval(record: {
   status: string;
-  adminApprovalStatus: string;
   identityVerification: { status: string; ageEvidenceStatus: string; ageVerifiedAt: Date | null } | null;
   profile: { birthDate: Date; city: string | null; bio: string | null; relationshipGoal: string | null;
     photoObjectKey: string | null; photoReviewStatus: string } | null;
