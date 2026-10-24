@@ -135,7 +135,7 @@ export default function DiscoverScreen() {
   <Modal visible={matched!==null} transparent animationType="fade" onRequestClose={()=>setMatched(null)}>
     <View style={s.modalBack}><View style={s.modalCard}>
       <Text style={s.modalHeart}>♡</Text>
-      <Text style={s.matchTitle}>It's a match!</Text>
+      <Text style={s.matchTitle}>It’s a match!</Text>
       <Text style={s.matchBody}>You both liked each other. Start a meaningful conversation.</Text>
       <Pressable style={s.primary} onPress={()=>{
         const id=matched;
