@@ -7,7 +7,9 @@ const port = Number(process.env.PORT || '4010');
 const base = 'http://127.0.0.1:' + port;
 const child = spawn(process.execPath, ['dist/main.js'], {
   cwd: require('node:path').join(__dirname, '..'),
-  env: { ...process.env, PORT: String(port), CORS_ORIGINS: 'http://localhost:8081' },
+  env: { ...process.env, PORT: String(port), CORS_ORIGINS: 'http://localhost:8081',
+    R2_ACCOUNT_ID: 'local-ci', R2_BUCKET: 'private-ci',
+    R2_ACCESS_KEY_ID: 'dummy-key', R2_SECRET_ACCESS_KEY: 'ci-only-fake-secret-never-used-for-real-objects' },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 let logs = '';
@@ -90,6 +92,82 @@ async function smoke() {
   assert.equal(prefs.status, 200, 'preference creation works');
   const again = await call('/preferences/me', 'GET', undefined, token);
   assert.equal(again.json.minAge, 23, 'preference persisted');
+  // Social discovery is NEVER opened to new or unverified users.
+  const unverifiedAccess = await call('/social/access', 'GET', undefined, token);
+  assert.equal(unverifiedAccess.status, 200);
+  assert.equal(unverifiedAccess.json.ready, false, 'pending account cannot discover');
+  const unverifiedDiscover = await call('/social/discover', 'GET', undefined, token);
+  assert.equal(unverifiedDiscover.status, 200);
+  assert.deepEqual(unverifiedDiscover.json.profiles, [], 'no private member data exposed');
+  const otherRegistration = {
+    email: 'ci+other+' + randomUUID() + '@example.invalid',
+    password: registration.password, displayName: 'Jordan', birthDate: '1996-05-05',
+  };
+  const other = await call('/auth/register', 'POST', otherRegistration);
+  assert.equal(other.status, 201, 'second account created');
+  const otherToken = other.json.accessToken;
+  assert.equal((await call('/social/likes', 'POST', { toId: other.json.user.id }, token)).status, 403,
+    'pending account cannot like');
+
+  const otherProfile = await call('/profiles/me', 'PUT', {
+    city: 'Pretoria', cityPlaceId: 'geonames:987654321',
+    bio: 'I love galleries, reading and meaningful conversations. Weekends are for hiking.',
+    relationshipGoal: 'Long-term', interests: ['Hiking', 'Art'], coreValues: ['Kindness'],
+  }, otherToken);
+  assert.equal(otherProfile.status, 200);
+
+  // Approve ONLY synthetic CI accounts in the isolated throwaway database.
+  // Never set User ACTIVE from a client or skip real Didit + photo moderation.
+  const testDb = new PrismaClient();
+  try {
+    for (const id of [created.json.user.id, other.json.user.id]) {
+      await testDb.user.update({ where: { id }, data: {
+        status: 'ACTIVE', profile: { update: {
+          photoObjectKey: 'profiles/' + id + '/ci-synthetic-photo',
+          photoReviewStatus: 'APPROVED',
+        } },
+      } });
+      await testDb.identityVerification.create({ data: {
+        userId: id, providerSessionId: 'ci-' + randomUUID(), consentAt: new Date(),
+        status: 'Approved',
+      } });
+    }
+  } finally { await testDb.$disconnect(); }
+  assert.equal((await call('/social/visibility', 'PUT', { visible: true }, token)).status, 200);
+  assert.equal((await call('/social/visibility', 'PUT', { visible: true }, otherToken)).status, 200);
+
+  const found = await call('/social/discover', 'GET', undefined, token);
+  assert.equal(found.status, 200);
+  assert.equal(found.json.access.ready, true);
+  assert.ok(found.json.profiles.some(p => p.id === other.json.user.id), 'eligible profile discoverable');
+  assert.ok(found.json.profiles.every(p => !('email' in p)), 'never expose member emails');
+  const firstLike = await call('/social/likes', 'POST', { toId: other.json.user.id }, token);
+  assert.equal(firstLike.status, 201);
+  assert.equal(firstLike.json.matched, false, 'one-sided like is not a match');
+  const secondLike = await call('/social/likes', 'POST', { toId: created.json.user.id }, otherToken);
+  assert.equal(secondLike.json.matched, true, 'reciprocal like creates match');
+  const matchId = secondLike.json.matchId;
+  assert.ok(matchId);
+  const inbox = await call('/social/matches', 'GET', undefined, token);
+  assert.ok(inbox.json.matches.some(m => m.id === matchId), 'mutual match appears in inbox');
+  const msg = await call('/social/matches/' + matchId + '/messages', 'POST',
+    { content: 'Hello! Which trails are your favorite?' }, token);
+  assert.equal(msg.status, 201);
+  const conversation = await call('/social/matches/' + matchId + '/messages', 'GET', undefined, otherToken);
+  assert.equal(conversation.status, 200);
+  assert.equal(conversation.json.messages.length, 1);
+  assert.equal(conversation.json.messages[0].content, 'Hello! Which trails are your favorite?');
+  const duplicateMessage = await call('/social/matches/' + matchId + '/messages', 'POST',
+    { content: 'Hi again' }, token);
+  assert.equal(duplicateMessage.status, 400, 'rapid message spam is blocked');
+  const reported = await call('/social/reports', 'POST', { memberId: other.json.user.id, category: 'SCAM' }, token);
+  assert.equal(reported.status, 201, 'report recorded');
+  const blocked = await call('/social/blocks', 'POST', { memberId: other.json.user.id }, token);
+  assert.equal(blocked.status, 201, 'block recorded');
+  const afterBlock = await call('/social/matches', 'GET', undefined, token);
+  assert.ok(!afterBlock.json.matches.some(m => m.id === matchId), 'blocked match hidden');
+  assert.equal((await call('/social/matches/' + matchId + '/messages', 'GET', undefined, token)).status, 404,
+    'blocked conversation unavailable');
   const login = await call('/auth/login', 'POST', { email, password: registration.password });
   assert.equal(login.status, 201, 'sign-in succeeds');
   assert.ok(login.json.accessToken);
@@ -97,7 +175,7 @@ async function smoke() {
   assert.equal(wrongPassword.status, 401, 'invalid password rejected');
   assert.equal((await call('/auth/logout', 'POST', {}, token)).status, 201, 'logout succeeds');
   assert.equal((await call('/auth/me', 'GET', undefined, token)).status, 401, 'logged-out token denied');
-  console.log('LoveBind integration smoke: registration, authentication, profiles, preferences and PostgreSQL PASS');
+  console.log('LoveBind integration smoke: auth, profile, city, discover, reciprocal likes, chat, reporting, blocking and PostgreSQL PASS');
 }
 smoke().catch((error) => {
   console.error(error);

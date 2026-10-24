@@ -18,6 +18,9 @@ export default function RootLayout() {
         <Stack.Screen name="profile-photo" options={{ headerShown: false }} />
         <Stack.Screen name="verification" options={{ headerShown: false }} />
         <Stack.Screen name="profile" options={{ title: 'My profile' }} />
+        <Stack.Screen name="explore" options={{ headerShown: false }} />
+        <Stack.Screen name="matches" options={{ headerShown: false }} />
+        <Stack.Screen name="conversations/[matchId]" options={{ headerShown: false }} />
         <Stack.Screen name="preferences" options={{ title: 'Partner preferences' }} />
       </Stack>
     </SessionProvider>
