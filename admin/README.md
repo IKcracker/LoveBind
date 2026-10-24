@@ -94,3 +94,15 @@ databases. Never run `migrate reset` on populated Neon.
 - React admin uses a login response bearer token, memory-only. Harden with
   MFA, same-site admin-only session cookies/CSRF, and least-privilege RBAC
   before any public exposure.
+
+## Recheck previously submitted Didit age evidence
+
+Only an authenticated moderator can invoke these endpoints:
+
+- `POST /moderation/admin/members/:id/recheck-age`: retrieve the member's existing Didit decision and re-evaluate ID, DOB, liveness and face matching. Never create a new Didit session.
+- `GET /moderation/admin/members/:id/age-rechecks`: read privacy-safe moderator audit history.
+- `POST /moderation/admin/recheck-age/batch`: explicitly recheck at most five already-approved Didit sessions with `PENDING`, `MISSING` or `CHECKS_INCOMPLETE` age evidence. It does not run automatically.
+
+Rechecks are rate-limited to once per member per five minutes across processes, enforced with a PostgreSQL advisory transaction lock and a durable `AgeEvidenceRecheck` audit entry. Every attempt records the actor, status and outcome without raw document details, ID numbers, date of birth or Didit payloads. Provider failures leave existing evidence unchanged. Underage and DOB mismatch remain blocked; photo review and independent account approval are still required.
+
+Apply the **additive** `server/prisma/migrations/20261024_age_evidence_recheck/migration.sql` to a separate staging Neon branch first, then follow your approved migration process and backup before deploying the API. The original initial migration is still missing from this repository, so do not run `prisma migrate reset` on an existing Neon database. Test with synthetic records and actual permitted Didit sandbox responses before production release.
