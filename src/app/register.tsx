@@ -1,17 +1,17 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Redirect, router } from 'expo-router';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   AdultCheckbox, AuthField, AuthLayout, FormButton, FormError, FormLink,
-  PasswordField, StrengthMeter, authStyles,
+  Love, PasswordField, authStyles,
 } from '@/components/auth-screens';
-import { Palette } from '@/components/lovebind-ui';
-import { passwordStrength, validateRegistration, type FormErrors } from '@/lib/auth-validation';
+import { validateRegistration, type FormErrors } from '@/lib/auth-validation';
 import { useSession } from '@/lib/session';
 
 export default function RegisterScreen() {
   const { loading, user, signUp } = useSession();
-  const [displayName, setName] = useState('');
+  const [step, setStep] = useState<1 | 2>(1);
+  const [displayName, setDisplayName] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -20,129 +20,127 @@ export default function RegisterScreen() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [apiError, setApiError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const submitLock = useRef(false);
-  const strength = useMemo(() => passwordStrength(password), [password]);
+  const lock = useRef(false);
 
-  const clearError = useCallback((field: string) => {
-    setErrors((previous) => ({ ...previous, [field]: '' }));
+  const clear = useCallback((key: string) => {
+    setErrors(old => ({ ...old, [key]: '' }));
     setApiError(null);
   }, []);
 
+  const nextStep = () => {
+    const issues = validateRegistration({
+      displayName, birthDate, email: 'temp@example.com', password: 'long-enough-password',
+      confirmPassword: 'long-enough-password', adultConfirmed,
+    });
+    const relevant = Object.fromEntries(Object.entries(issues).filter(([key]) => ['displayName', 'birthDate', 'adultConfirmed'].includes(key)));
+    setErrors(relevant);
+    if (!Object.keys(relevant).length) setStep(2);
+  };
+
   const submit = useCallback(async () => {
-    if (submitLock.current) return;
-    const data = { displayName, birthDate, email, password, confirmPassword, adultConfirmed };
-    const next = validateRegistration(data);
-    setErrors(next);
+    if (lock.current) return;
+    const issues = validateRegistration({ displayName, birthDate, email, password, confirmPassword, adultConfirmed });
+    setErrors(issues);
     setApiError(null);
-    if (Object.keys(next).length) return;
-    submitLock.current = true;
+    if (Object.keys(issues).length) {
+      if (issues.displayName || issues.birthDate || issues.adultConfirmed) setStep(1);
+      return;
+    }
+    lock.current = true;
     setBusy(true);
     try {
-      await signUp({
-        displayName: displayName.trim(),
-        birthDate,
-        email: email.trim().toLowerCase(),
-        password,
-      });
-    } catch (error) {
-      setApiError(error instanceof Error ? error.message : 'Could not create your account. Try again.');
+      await signUp({ displayName: displayName.trim(), birthDate, email: email.trim().toLowerCase(), password });
+    } catch (e) {
+      setApiError(e instanceof Error ? e.message : 'Unable to create your account.');
     } finally {
-      submitLock.current = false;
+      lock.current = false;
       setBusy(false);
     }
-  }, [busy, displayName, birthDate, email, password, confirmPassword, adultConfirmed, signUp]);
+  }, [displayName, birthDate, email, password, confirmPassword, adultConfirmed, signUp]);
 
-  if (loading) return <View style={styles.loading}><ActivityIndicator color={Palette.rose} size="large" /></View>;
+  if (loading) return <View style={styles.loading}><ActivityIndicator color={Love.wine} /></View>;
   if (user) return <Redirect href="/" />;
 
   return (
     <AuthLayout
-      eyebrow="Your story starts here"
-      title="Let’s find something real."
-      description="Create your profile, tell us what matters to you, and meet people with intention."
-      footer={<FormLink before="Already have an account?" action="Sign in" onPress={() => router.replace('/login')} />}
+      step={step}
+      title={step === 1 ? 'First, the basics.' : 'Make it yours.'}
+      description={step === 1 ? 'A few details to get started. You can take your time.' : 'Add your email and create a password to keep your account secure.'}
+      onBack={step === 2 ? () => setStep(1) : undefined}
+      footer={<FormLink before="Already a member?" action="Sign in" onPress={() => router.replace('/login')} />}
     >
-      <Text style={authStyles.sectionHeading}>Create your account</Text>
-      <AuthField
-        label="What should we call you?"
-        placeholder="Your first name or nickname"
-        value={displayName}
-        onChangeText={(value) => { setName(value); clearError('displayName'); }}
-        autoComplete="name"
-        textContentType="nickname"
-        maxLength={60}
-        returnKeyType="next"
-        error={errors.displayName}
-      />
-      <AuthField
-        label="Date of birth"
-        placeholder="YYYY-MM-DD"
-        value={birthDate}
-        onChangeText={(value) => { setBirthDate(value); clearError('birthDate'); }}
-        keyboardType="numbers-and-punctuation"
-        maxLength={10}
-        returnKeyType="next"
-        helper="We use your date of birth to check that you're 18 or older. It is not shown on your profile."
-        error={errors.birthDate}
-      />
-      <AuthField
-        label="Email address"
-        placeholder="you@example.com"
-        value={email}
-        onChangeText={(value) => { setEmail(value); clearError('email'); }}
-        keyboardType="email-address"
-        autoComplete="email"
-        textContentType="emailAddress"
-        autoCapitalize="none"
-        autoCorrect={false}
-        maxLength={254}
-        returnKeyType="next"
-        error={errors.email}
-      />
-      <PasswordField
-        label="Choose a password"
-        value={password}
-        onChangeText={(value) => {
-          setPassword(value);
-          clearError('password');
-          clearError('confirmPassword');
-        }}
-        autoComplete="new-password"
-        returnKeyType="next"
-        error={errors.password}
-      />
-      <StrengthMeter level={strength.level} label={strength.label} />
-      <PasswordField
-        label="Confirm your password"
-        value={confirmPassword}
-        onChangeText={(value) => { setConfirmPassword(value); clearError('confirmPassword'); }}
-        autoComplete="new-password"
-        error={errors.confirmPassword}
-        onSubmitEditing={() => { void submit(); }}
-      />
-      <View style={styles.divider} />
-      <AdultCheckbox
-        value={adultConfirmed}
-        onChange={(value) => { setAdultConfirmed(value); clearError('adultConfirmed'); }}
-        error={errors.adultConfirmed}
-      />
-      <View style={authStyles.reassurance}>
-        <Text style={authStyles.reassuranceIcon}>♥</Text>
-        <Text style={authStyles.reassuranceText}>
-          Your profile stays private until account verification and safety checks are implemented.
-        </Text>
-      </View>
-      <FormError message={apiError} />
-      <FormButton text="Create account" busy={busy} onPress={() => { void submit(); }} />
-      <Text style={styles.legalNotice}>
-        LoveBind is currently in development. Public registration requires published terms, a privacy notice, and verified age and safety controls.
-      </Text>
+      {step === 1 ? (
+        <>
+          <AuthField
+            label="What should we call you?"
+            placeholder="Your first name or nickname"
+            value={displayName}
+            onChangeText={(value) => { setDisplayName(value); clear('displayName'); }}
+            autoComplete="name"
+            textContentType="nickname"
+            maxLength={60}
+            error={errors.displayName}
+          />
+          <AuthField
+            label="Your date of birth"
+            placeholder="YYYY-MM-DD"
+            helper="LoveBind is for adults aged 18 and older. Your date of birth isn't public."
+            value={birthDate}
+            onChangeText={(value) => { setBirthDate(value); clear('birthDate'); }}
+            keyboardType="numbers-and-punctuation"
+            maxLength={10}
+            error={errors.birthDate}
+          />
+          <AdultCheckbox
+            value={adultConfirmed}
+            onChange={(value) => { setAdultConfirmed(value); clear('adultConfirmed'); }}
+            error={errors.adultConfirmed}
+          />
+          <FormButton text="Continue" onPress={nextStep} />
+        </>
+      ) : (
+        <>
+          <AuthField
+            label="Email address"
+            placeholder="you@example.com"
+            value={email}
+            onChangeText={(value) => { setEmail(value); clear('email'); }}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="email-address"
+            autoComplete="email"
+            textContentType="emailAddress"
+            maxLength={254}
+            error={errors.email}
+          />
+          <PasswordField
+            label="Create password"
+            value={password}
+            onChangeText={(value) => { setPassword(value); clear('password'); }}
+            autoComplete="new-password"
+            error={errors.password}
+          />
+          <Text style={authStyles.note}>Use at least 12 characters. Longer passwords are stronger.</Text>
+          <PasswordField
+            label="Confirm password"
+            value={confirmPassword}
+            onChangeText={(value) => { setConfirmPassword(value); clear('confirmPassword'); }}
+            autoComplete="new-password"
+            error={errors.confirmPassword}
+            onSubmitEditing={() => { void submit(); }}
+          />
+          <FormError message={apiError} />
+          <FormButton text="Create account" busy={busy} onPress={() => { void submit(); }} />
+          <Text style={authStyles.note}>LoveBind is in development. Accounts remain private while verification, safety tools and legal policies are being completed.</Text>
+          <Pressable accessibilityRole="button" onPress={() => setStep(1)} style={styles.back}><Text style={styles.backText}>← Edit personal details</Text></Pressable>
+        </>
+      )}
     </AuthLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  loading: { flex: 1, justifyContent: 'center', backgroundColor: Palette.background },
-  divider: { height: 1, backgroundColor: '#F0E8ED', marginVertical: 1 },
-  legalNotice: { color: Palette.muted, fontSize: 11, lineHeight: 17, textAlign: 'center' },
+  loading: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Love.paper },
+  back: { paddingVertical: 7, alignSelf: 'flex-start' },
+  backText: { color: Love.wine, fontSize: 13, fontWeight: '700' },
 });
