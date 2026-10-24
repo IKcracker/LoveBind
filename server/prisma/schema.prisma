@@ -35,6 +35,8 @@ model User {
   blocksReceived Block[] @relation("Blocked")
   reportsMade  SafetyReport[] @relation("Reporter")
   reportsAbout SafetyReport[] @relation("Reported")
+  credential   EmailCredential?
+  sessions     AuthSession[]
   consents     ConsentRecord[]
 }
 
@@ -232,4 +234,25 @@ model ConsentRecord {
   granted Boolean
   timestamp DateTime @default(now())
   @@index([userId, purpose, timestamp])
+}
+
+model EmailCredential {
+  id           String @id @default(cuid())
+  userId       String @unique
+  user         User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email        String @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model AuthSession {
+  id          String @id @default(cuid())
+  userId      String
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenDigest String @unique
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  createdAt   DateTime @default(now())
+  @@index([userId, expiresAt])
 }
