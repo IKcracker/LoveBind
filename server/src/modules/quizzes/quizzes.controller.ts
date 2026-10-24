@@ -60,6 +60,7 @@ export class QuizzesController {
     await this.db.$transaction(async tx=>{
       const pair=await this.authorized(tx,matchId,req.authUserId);
       await lockMemberPair(tx,pair.userAId,pair.userBId);
+      await this.authorized(tx,matchId,req.authUserId);
       // A single versioned questionnaire per match; concurrent starts are serialized.
       const existing=await tx.quizSession.findFirst({where:{matchId},select:{id:true}});
       if(existing)return;
@@ -77,6 +78,7 @@ export class QuizzesController {
     await this.db.$transaction(async tx=>{
       const pair=await this.authorized(tx,matchId,req.authUserId);
       await lockMemberPair(tx,pair.userAId,pair.userBId);
+      await this.authorized(tx,matchId,req.authUserId);
       const session=await tx.quizSession.findFirst({where:{matchId},select:{id:true,status:true,
         template:{select:{version:true}}}});
       if(!session)throw new ConflictException('Start the compatibility quiz first');
