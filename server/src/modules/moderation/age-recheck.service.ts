@@ -1,6 +1,6 @@
 import { ConflictException, Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { evaluateDiditAgeEvidence } from './activation';
+import { evaluateDiditAgeEvidence, reconcileAccount } from './activation';
 
 const DIDIT = 'https://verification.didit.me/v3/session/';
 const COOLDOWN_MS = 5 * 60 * 1000;
@@ -55,7 +55,6 @@ export class AgeRecheckService {
         await tx.identityVerification.update({where:{userId:memberId},
           data:{status,ageEvidenceStatus:evidence.status,
             ageVerifiedAt,lastCheckedAt:new Date()}});
-        const {reconcileAccount}=await import('./activation');
         const accountActive=await reconcileAccount(tx,memberId);
         await tx.ageEvidenceRecheck.update({where:{id:claim.id},data:{
           outcome:'COMPLETED',resultStatus:evidence.status,issue:evidence.issue,completedAt:new Date()}});
