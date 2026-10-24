@@ -54,7 +54,7 @@ export default function Discover() {
   {data?.needsOptIn?<View style={s.panel}><Text style={s.panelTitle}>Ready to be discovered?</Text>
    <Text style={s.panelText}>Your dating profile is private by default. Choose to become visible only to eligible verified adults. You can turn this off any time.</Text>
    <FormButton text="Join discovery" busy={busy} onPress={()=>void optIn(true)}/>
-   <Pressable onPress={()=>router.push('/preferences')}><Text style={s.link}>Edit who you're looking for →</Text></Pressable></View>:null}
+   <Pressable onPress={()=>router.push('/preferences')}><Text style={s.link}>Edit who you are looking for →</Text></Pressable></View>:null}
   {data&&!data.needsOptIn&&<View style={s.tools}>
     <Text style={s.meta}>VISIBLE TO ELIGIBLE MEMBERS</Text>
     <Pressable disabled={busy} onPress={()=>void optIn(false)}><Text style={s.link}>Hide my profile</Text></Pressable>
