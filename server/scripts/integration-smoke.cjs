@@ -5,6 +5,8 @@ if (process.env.NODE_ENV !== 'test' || process.env.CI !== '1') {
 const assert = require('node:assert/strict');
 const { spawn } = require('node:child_process');
 const { randomUUID } = require('node:crypto');
+// A disposable test-only key shared with the API child; never use on real deployments.
+process.env.LOVEBIND_CHAT_ENCRYPTION_KEY = 'c'.repeat(64);
 
 const port = Number(process.env.PORT || '4010');
 const base = 'http://127.0.0.1:' + port;
@@ -20,6 +22,7 @@ const child = spawn(process.execPath, ['dist/main.js'], {
     LOVEBIND_ADMIN_EMAIL: envAdminEmail,
     LOVEBIND_ADMIN_PASSWORD: envAdminPassword,
     DIDIT_API_KEY:'ci-fake-didit-key-not-used',
+    LOVEBIND_CHAT_ENCRYPTION_KEY: process.env.LOVEBIND_CHAT_ENCRYPTION_KEY,
     R2_ACCOUNT_ID: 'ci-account', R2_BUCKET: 'ci-private',
     R2_ACCESS_KEY_ID: 'ci-test-key', R2_SECRET_ACCESS_KEY: 'ci-fake-key-not-used' },
   stdio: ['ignore', 'pipe', 'pipe'],
