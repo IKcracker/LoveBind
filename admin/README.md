@@ -10,7 +10,7 @@ From the LoveBind project root:
 
 ```powershell
 cd admin
-npm install
+npm ci
 Copy-Item .env.example .env.local
 npm run dev
 ```
