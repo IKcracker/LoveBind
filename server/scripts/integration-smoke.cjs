@@ -16,6 +16,7 @@ const child = spawn(process.execPath, ['dist/main.js'], {
     LOVEBIND_MODERATOR_IDS: moderatorId,
     LOVEBIND_ADMIN_EMAIL: envAdminEmail,
     LOVEBIND_ADMIN_PASSWORD: envAdminPassword,
+    DIDIT_API_KEY:'ci-fake-didit-key-not-used',
     R2_ACCOUNT_ID: 'ci-account', R2_BUCKET: 'ci-private',
     R2_ACCESS_KEY_ID: 'ci-test-key', R2_SECRET_ACCESS_KEY: 'ci-fake-key-not-used' },
   stdio: ['ignore', 'pipe', 'pipe'],
@@ -68,6 +69,12 @@ async function smoke() {
     'environment admin excluded from members directory');
   assert.equal((await call('/auth/login','POST',{email:envAdminEmail,password:'wrong'})).status,401,
     'invalid admin password denied');
+  const noMemberRecheck=await call('/moderation/admin/members/unknown-member/recheck-age','POST',{},envAdminToken);
+  assert.equal(noMemberRecheck.status,409,'cannot recheck an unverified or unknown member');
+  assert.equal((await call('/moderation/admin/recheck-age/batch','POST',{},envAdminToken)).status,201,
+    'empty batch is allowed');
+  assert.equal((await call('/moderation/admin/members/unknown-member/age-rechecks','GET',undefined,envAdminToken)).status,200,
+    'moderator can read age recheck history');
   assert.equal((await call('/auth/me')).status, 401, 'private endpoint rejects guests');
   const email = 'ci+' + randomUUID() + '@example.invalid';
   const registration = {

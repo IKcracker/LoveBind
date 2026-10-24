@@ -10,6 +10,7 @@ import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { canModerate } from '../auth/admin-bootstrap';
 import { ENV_ADMIN_SUBJECT } from '../auth/admin-bootstrap';
+import { AgeRecheckService } from './age-recheck.service';
 
 function checkId(id: string) {
   if (!/^[A-Za-z0-9_-]{10,100}$/.test(id)) throw new BadRequestException('Invalid account identifier');
@@ -42,7 +43,7 @@ const memberSelect = {
 @Controller('moderation/admin')
 @UseGuards(AuthGuard)
 export class AdminController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly ageRecheck: AgeRecheckService) {}
 
   @Get('overview')
   async overview(@Req() req: AuthenticatedRequest) {
@@ -155,6 +156,27 @@ export class AdminController {
       const active = await reconcileAccount(tx, id);
       return { decision, accountActive: active };
     }, { isolationLevel: 'Serializable' });
+  }
+
+  @Post('members/:id/recheck-age')
+  async recheckAge(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
+    if (!(await canModerate(this.prisma, req.authUserId))) throw new ForbiddenException('Administrator permission required');
+    checkId(id);
+    if (req.authUserId === id) throw new ForbiddenException('Cannot recheck your own age evidence');
+    return this.ageRecheck.recheck(id, req.authUserId, 'MANUAL');
+  }
+
+  @Post('recheck-age/batch')
+  async recheckAgeBatch(@Req() req: AuthenticatedRequest) {
+    if (!(await canModerate(this.prisma, req.authUserId))) throw new ForbiddenException('Administrator permission required');
+    return this.ageRecheck.batch(req.authUserId);
+  }
+
+  @Get('members/:id/age-rechecks')
+  async ageRecheckHistory(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
+    if (!(await canModerate(this.prisma, req.authUserId))) throw new ForbiddenException('Administrator permission required');
+    checkId(id);
+    return {events:await this.ageRecheck.history(id)};
   }
 
   @Get('activity')

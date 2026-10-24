@@ -46,6 +46,8 @@ export default function App(){
  const [intent,setIntent]=useState<Intent|null>(null);
  const [reason,setReason]=useState('');
  const [mobileOpen,setMobileOpen]=useState(false);
+ const [rechecking,setRechecking]=useState(false);
+ const [recheckHistory,setRecheckHistory]=useState<{id:string;source:string;outcome:string;previousStatus:string;resultStatus:string|null;issue:string|null;checkedAt:string}[]>([]);
 
  const logout=useCallback(async()=>{
   if(token)await request('/auth/logout',token,'POST',{}).catch(()=>undefined);
@@ -104,8 +106,41 @@ export default function App(){
  function navigate(next:View){setView(next);setSelected(null);setDetail(null);setNotice('');setError('');setMobileOpen(false);}
  async function openMember(id:string){
   if(!token)return;setSelected(id);setDetail(null);setError('');
-  try{setDetail(await request<MemberDetail>('/moderation/admin/members/'+encodeURIComponent(id),token));}
+  try{
+    const [member,history]=await Promise.all([
+      request<MemberDetail>('/moderation/admin/members/'+encodeURIComponent(id),token),
+      request<{events:typeof recheckHistory}>('/moderation/admin/members/'+encodeURIComponent(id)+'/age-rechecks',token),
+    ]);
+    setDetail(member);setRecheckHistory(history.events);
+   }
   catch(e){setError(e instanceof Error?e.message:'Unable to open this member');setSelected(null);}
+ }
+ async function recheckAge(id:string){
+  if(!token||rechecking)return;
+  setRechecking(true);setError('');setNotice('');
+  try{
+   const response=await request<{ageEvidenceStatus:string;ageEvidenceIssue:string|null}>(
+    '/moderation/admin/members/'+encodeURIComponent(id)+'/recheck-age',token,'POST',{});
+   setNotice('Age recheck: '+response.ageEvidenceStatus+(response.ageEvidenceIssue?' ('+response.ageEvidenceIssue+')':''));
+   const [member,history]=await Promise.all([
+    request<MemberDetail>('/moderation/admin/members/'+encodeURIComponent(id),token),
+    request<{events:typeof recheckHistory}>('/moderation/admin/members/'+encodeURIComponent(id)+'/age-rechecks',token),
+   ]);
+   setDetail(member);setRecheckHistory(history.events);
+   await load(view,token,query,filter,page);
+  }catch(e){setError(e instanceof Error?e.message:'Age recheck failed');}
+  finally{setRechecking(false);}
+ }
+ async function batchRecheck(){
+  if(!token||rechecking)return;
+  setRechecking(true);setError('');setNotice('');
+  try{
+   const response=await request<{processed:number;maxPerRequest:number;results:{result:string}[]}>(
+    '/moderation/admin/recheck-age/batch',token,'POST',{});
+   setNotice('Rechecked '+response.processed+' existing Didit sessions (max '+response.maxPerRequest+' per request).');
+   await load(view,token,query,filter,page);
+  }catch(e){setError(e instanceof Error?e.message:'Batch recheck failed');}
+  finally{setRechecking(false);}
  }
  function prepare(kind:Intent['kind'],id:string,name:string,decision:Intent['decision']){
   setIntent({kind,id,name,decision});setReason('');setError('');
@@ -204,7 +239,7 @@ export default function App(){
     </>}
     {view==='members'&&<>
       <SectionTitle eyebrow="MEMBER MANAGEMENT" title="Your community." description="Find people, review their verification progress, and make account decisions."
-      action={<button className="btn btn-white" onClick={()=>void refresh()}><RefreshCw size={16}/> Refresh</button>}/>
+      action={<div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button className="btn btn-white" disabled={rechecking} onClick={()=>void batchRecheck()}>{rechecking?<Loader2 className="spin" size={16}/>:<RefreshCw size={16}/>} Recheck pending ages (up to 5)</button><button className="btn btn-white" onClick={()=>void refresh()}><RefreshCw size={16}/> Refresh</button></div>}/>
       <section className="card table-card">
        <div className="table-toolbar"><div className="searchbox"><Search size={19}/><input value={query} onChange={e=>{setQuery(e.target.value);setPage(1)}} placeholder="Search name, email or member ID…" aria-label="Search members"/></div>
         <div className="select-wrap"><Filter size={17}/><select value={filter} aria-label="Filter approvals" onChange={e=>{setFilter(e.target.value);setPage(1)}}><option value="">All approvals</option><option value="PENDING">Awaiting review</option><option value="APPROVED">Approved</option><option value="REJECTED">Rejected</option></select><ChevronDown size={14}/></div>
@@ -259,6 +294,16 @@ export default function App(){
         <div><span>{detail.profile?.bio&&detail.profile.city&&detail.profile.relationshipGoal?<CheckCircle2 className="good"/>:<Clock3/>} Profile complete</span><Status value={detail.profile?.bio&&detail.profile.city&&detail.profile.relationshipGoal?'Ready':'Pending'}/></div>
        </div>
        <p className="detail-hint">Identity documents and biometric data remain with Didit. Only verification results are visible here.</p>
+        {detail.verification&&detail.verification.ageEvidenceStatus!=='VERIFIED'&&detail.status!=='SUSPENDED'&&detail.status!=='DELETED'&&
+         <button className="btn btn-white" disabled={rechecking} onClick={()=>void recheckAge(detail.id)}>
+          {rechecking?<Loader2 className="spin" size={16}/>:<RefreshCw size={16}/>} Recheck existing Didit evidence
+         </button>}
+        {recheckHistory.length>0&&<div><h4>Age recheck history</h4>
+         {recheckHistory.slice(0,6).map(x=><div key={x.id} className="history-row"><div>
+          <strong>{x.source} · {x.outcome} · {x.resultStatus||x.previousStatus}</strong>
+          <small>{x.issue||'No verification issue recorded'}</small>
+         </div><span>{DATE_TIME(x.checkedAt)}</span></div>)}
+        </div>}
       </div>
       <div className="drawer-section"><div className="drawer-title"><h4>About this member</h4><CircleHelp size={17}/></div>
        <div className="detail-two-col"><div><span>City</span><strong>{detail.profile?.city||'Not set'}</strong></div><div><span>Occupation</span><strong>{detail.profile?.occupation||'Not set'}</strong></div><div><span>Looking for</span><strong>{detail.profile?.relationshipGoal||'Not set'}</strong></div><div><span>Profile visibility</span><strong>{detail.profile?.visible?'Visible':'Private'}</strong></div></div>

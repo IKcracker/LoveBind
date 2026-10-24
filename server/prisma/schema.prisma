@@ -75,6 +75,8 @@ model User {
   photoReviewsMade PhotoModerationReview[] @relation("PhotoReviewModerator")
   accountDecisionsMade AccountModerationDecision[] @relation("AccountReviewer")
   accountDecisionsReceived AccountModerationDecision[] @relation("AccountReviewed")
+  ageRechecksForMember AgeEvidenceRecheck[] @relation("AgeEvidenceRecheckedMember")
+  ageRechecksByModerator AgeEvidenceRecheck[] @relation("AgeEvidenceRecheckModerator")
 }
 
 model Profile {
@@ -361,4 +363,26 @@ model AccountModerationDecision {
   createdAt DateTime @default(now())
   @@index([userId, createdAt])
   @@index([moderatorId, createdAt])
+}
+
+/**
+ * Security audit of moderator-initiated rechecks of existing Didit sessions.
+ * Never stores document data, date of birth, session IDs or raw Didit responses.
+ */
+model AgeEvidenceRecheck {
+  id String @id @default(cuid())
+  memberId String
+  member User @relation("AgeEvidenceRecheckedMember", fields: [memberId], references: [id], onDelete: Cascade)
+  moderatorId String
+  moderator User @relation("AgeEvidenceRecheckModerator", fields: [moderatorId], references: [id], onDelete: Restrict)
+  source String @db.VarChar(20)
+  outcome String @default("STARTED") @db.VarChar(25)
+  previousStatus String @db.VarChar(30)
+  resultStatus String? @db.VarChar(30)
+  issue String? @db.VarChar(60)
+  checkedAt DateTime @default(now())
+  completedAt DateTime?
+
+  @@index([memberId, checkedAt])
+  @@index([moderatorId, checkedAt])
 }
