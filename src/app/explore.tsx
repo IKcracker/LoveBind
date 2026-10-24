@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BrandLockup, Love, serif } from '@/components/auth-screens';
 import { LoveBindNav } from '@/components/lovebind-nav';
 import { apiRequest } from '@/lib/api';
-import type { DiscoverProfile, DiscoverResponse, LikeResponse } from '@/lib/social';
+import type { DiscoverResponse, LikeResponse } from '@/lib/social';
 import { useSession } from '@/lib/session';
 
 export default function DiscoverScreen() {
@@ -26,7 +26,14 @@ export default function DiscoverScreen() {
   catch(e){setError(e instanceof Error?e.message:'Cannot load discovery');}
   finally{setLoadingList(false)}
  }
- useEffect(()=>{if(token)void refresh();},[token]);
+ useEffect(()=>{
+  if(!token)return;
+  let active=true;
+  apiRequest<DiscoverResponse>('/social/discover','GET',undefined,token)
+    .then(r=>{if(active){setData(r);setIndex(0);setLoadingList(false);}})
+    .catch(e=>{if(active){setError(e instanceof Error?e.message:'Cannot load discovery');setLoadingList(false);}});
+  return ()=>{active=false;};
+ },[token]);
  async function enable(){
   if(!token||busy)return;setBusy(true);setError(null);
   try{await apiRequest('/social/visibility','PUT',{visible:true},token);await refresh();}

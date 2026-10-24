@@ -24,7 +24,20 @@ export default function MatchesScreen() {
   }catch(e){setError(e instanceof Error?e.message:'Unable to load matches');}
   finally{setPending(false)}
  }
- useEffect(()=>{if(token)void load();},[token]);
+ useEffect(()=>{
+  if(!token)return;
+  let active=true;
+  apiRequest<SocialAccess>('/social/access','GET',undefined,token).then(async a=>{
+    if(!active)return;
+    setAccess(a);
+    if(a.ready){
+      const list=await apiRequest<{matches:MatchCard[]}>('/social/matches','GET',undefined,token);
+      if(active)setItems(list.matches);
+    }else{setItems([]);}
+  }).catch(e=>{if(active)setError(e instanceof Error?e.message:'Unable to load matches');})
+    .finally(()=>{if(active)setPending(false);});
+  return ()=>{active=false;};
+ },[token]);
  if(loading)return <View style={s.loading}><ActivityIndicator color={Love.wine}/></View>;
  if(!token||!user)return <Redirect href="/login"/>;
  return <SafeAreaView style={s.safe}>

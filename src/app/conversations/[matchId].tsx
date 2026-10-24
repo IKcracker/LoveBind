@@ -32,7 +32,19 @@ export default function ConversationScreen(){
   }catch(e){setError(e instanceof Error?e.message:'Unable to open this conversation');}
   finally{setWaiting(false)}
  }
- useEffect(()=>{void load();},[token,matchId]);
+ useEffect(()=>{
+  if(!token||typeof matchId!=='string')return;
+  let active=true;
+  apiRequest<{matches:MatchCard[]}>('/social/matches','GET',undefined,token).then(async r=>{
+    const current=r.matches.find(x=>x.id===matchId);
+    if(!current)throw new Error('This conversation is no longer available.');
+    if(active)setMatch(current);
+    return apiRequest<{messages:Message[]}>('/social/matches/'+encodeURIComponent(matchId)+'/messages','GET',undefined,token);
+  }).then(history=>{if(active&&history)setMessages(history.messages);})
+    .catch(e=>{if(active)setError(e instanceof Error?e.message:'Unable to open this conversation');})
+    .finally(()=>{if(active)setWaiting(false);});
+  return ()=>{active=false;};
+ },[token,matchId]);
  async function send(){
   if(!token||!match||!draft.trim()||busy)return;
   setBusy(true);setError(null);
