@@ -37,7 +37,8 @@ export function CityPicker({token,city,placeId,onSelect}:{
    {!placeId&&suggestions.map(item=><Pressable key={item.placeId} onPress={()=>void pick(item)} style={s.option} accessibilityRole="button">
     <Text style={s.pin}>⌖</Text><Text style={s.optionText}>{item.label}</Text>
    </Pressable>)}
+   {!placeId&&suggestions.length>0?<Text style={s.credit}>City data: GeoNames (CC BY 4.0)</Text>:null}
    {error?<Text style={s.error}>{error}</Text>:null}
  </View>;
 }
-const s=StyleSheet.create({root:{gap:6},option:{padding:13,minHeight:48,borderWidth:1,borderColor:Love.line,backgroundColor:Love.white,borderRadius:8,flexDirection:'row',alignItems:'center',gap:10},pin:{color:Love.wine,fontSize:24},optionText:{flex:1,color:Love.ink,fontSize:14},error:{color:Love.error,fontSize:12}});
+const s=StyleSheet.create({root:{gap:6},option:{padding:13,minHeight:48,borderWidth:1,borderColor:Love.line,backgroundColor:Love.white,borderRadius:8,flexDirection:'row',alignItems:'center',gap:10},pin:{color:Love.wine,fontSize:24},optionText:{flex:1,color:Love.ink,fontSize:14},error:{color:Love.error,fontSize:12},credit:{color:Love.muted,fontSize:11}});

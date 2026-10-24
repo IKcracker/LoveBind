@@ -1,5 +1,5 @@
 import { BadRequestException, Body, Controller, Get, Put, Req, UseGuards } from '@nestjs/common';
-import { LocationsController } from '../locations/locations.controller';
+
 import { AuthGuard, AuthenticatedRequest } from '../auth/auth.guard';
 import { parseProfile } from '../auth/auth.validation';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -19,7 +19,10 @@ export class ProfileController {
     const fields = parseProfile(body);
     const current = await this.prisma.profile.findUniqueOrThrow({ where: { userId: request.authUserId }, select: { city: true, cityPlaceId: true } });
     if (fields.cityPlaceId) {
-      const selected = await new LocationsController().place(fields.cityPlaceId);
+      if (!/^geonames:[1-9][0-9]{0,9}$/.test(fields.cityPlaceId)) throw new BadRequestException('Select a valid city');
+      const cityRecord = await this.prisma.geoCity.findUnique({ where: { id: Number(fields.cityPlaceId.slice(9)) } });
+      if (!cityRecord) throw new BadRequestException('Select a city from suggestions');
+      const selected = { city: cityRecord.name };
       if (fields.city && fields.city !== selected.city) throw new BadRequestException('Select a valid city suggestion');
       fields.city = selected.city;
     } else if (fields.city !== undefined && fields.city !== current.city) {
