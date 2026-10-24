@@ -82,6 +82,11 @@ model Profile {
   bio String? @db.VarChar(1000)
   relationshipGoal String?
   isVisible Boolean @default(false)
+  occupation String? @db.VarChar(100)
+  interests String[] @default([])
+  coreValues String[] @default([])
+  photoObjectKey String?
+  photoReviewStatus String @default("NONE")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

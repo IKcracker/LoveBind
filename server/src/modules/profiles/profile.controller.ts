@@ -19,7 +19,7 @@ export class ProfileController {
     return this.prisma.profile.update({
       where: { userId: request.authUserId },
       data: fields,
-      select: { displayName: true, city: true, bio: true, relationshipGoal: true, isVisible: true },
+      select: { displayName: true, city: true, bio: true, relationshipGoal: true, occupation: true, interests: true, coreValues: true, photoReviewStatus: true, isVisible: true },
     });
   }
 }

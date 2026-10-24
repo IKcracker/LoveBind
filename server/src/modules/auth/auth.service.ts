@@ -71,7 +71,7 @@ export class AuthService {
         credential: { select: { email: true } },
         profile: { select: {
           displayName: true, birthDate: true, bio: true, city: true,
-          relationshipGoal: true, isVisible: true,
+          relationshipGoal: true, occupation: true, interests: true, coreValues: true, photoReviewStatus: true, isVisible: true,
         } },
         preferences: { select: { minAge: true, maxAge: true, preferredCities: true, relationshipGoals: true } },
       },

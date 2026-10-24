@@ -38,7 +38,8 @@ export default function Verification() {
 
   return <SafeAreaView style={s.safe}><ScrollView contentContainerStyle={s.body}>
     <BrandLockup/>
-    <Text style={s.overline}>02 / 02 · TRUST & SAFETY</Text>
+    <View style={s.progress}><View style={s.active}/><View style={s.active}/><View style={s.active}/></View>
+    <Text style={s.overline}>03 / 03 · TRUST & SAFETY</Text>
     <Text style={s.head}>The real you, safely.</Text>
     <Text style={s.description}>To help make LoveBind a safer place, verify your identity with our verification partner. Your identification documents and selfie are collected by the provider, not by LoveBind.</Text>
     <View style={s.card}>
@@ -76,6 +77,8 @@ const s=StyleSheet.create({
   checked:{backgroundColor:Love.wine},
   tick:{color:Love.white,fontWeight:'700'},
   consentText:{flex:1,color:Love.ink,fontSize:12,lineHeight:19},
+  progress:{flexDirection:'row',gap:6,marginTop:12},
+  active:{backgroundColor:Love.wine,height:3,flex:1},
   signout:{padding:14,alignItems:'center'},
   signoutText:{color:Love.muted,textDecorationLine:'underline'}
 });
