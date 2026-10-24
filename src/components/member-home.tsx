@@ -30,28 +30,33 @@ export function MemberHome() {
   const profile = user.profile;
   const details = !!(profile?.city && profile?.bio && profile?.relationshipGoal);
   const hasPhoto = profile?.photoReviewStatus === 'PENDING' || profile?.photoReviewStatus === 'APPROVED';
-  const steps = Number(details) + Number(hasPhoto);
+  const verified = user.identityVerification?.status === 'Approved' && user.identityVerification?.ageEvidenceStatus === 'VERIFIED';
+  const active = user.status === 'ACTIVE';
+  const steps = Number(details) + Number(hasPhoto) + Number(verified);
   return <SafeAreaView style={s.safe}>
     <ScrollView contentContainerStyle={s.container}>
       <View style={s.header}><BrandLockup/><Text style={s.headTag}>YOUR SPACE</Text></View>
       <Text style={s.welcome}>Good to see you,</Text>
       <Text style={s.name}>{name}<Text style={s.dot}>.</Text></Text>
       <Text style={s.caption}>The best stories are the ones you get to write together.</Text>
-      <View style={s.panel}>
+      {active ? <View style={s.panel}><Text style={s.kicker}>WELCOME TO LOVEBIND</Text><Text style={s.panelTitle}>Your next chapter starts here.</Text><Text style={s.panelDesc}>Your account is approved. Set your preferences, join discovery when you're ready, and meet people who share what matters to you.</Text></View> : null}
+      {!active && <View style={s.panel}>
         <Text style={s.kicker}>GETTING STARTED</Text>
         <Text style={s.panelTitle}>Your story is taking shape.</Text>
         <Text style={s.panelDesc}>Finish setting up your account before you start meeting people.</Text>
         <View style={s.track}><View style={[s.fill,{width: (steps / 3 * 100) + '%'}]}/></View>
-        <Text style={s.progressText}>{steps} of 3 setup steps completed</Text>
-      </View>
+        <Text style={s.progressText}>{steps} of 3 setup steps completed · Final review required before discovery</Text>
+      </View>}
       {moderator ? <Shortcut title="Photo moderation" description="Review pending profile photos" onPress={()=>router.push('/moderation')} /> : null}
-      <Text style={s.section}>Continue your journey</Text>
+      <Text style={s.section}>{active?'Explore LoveBind':'Continue your journey'}</Text>
+      {active?<Shortcut title="Discover people ♡" description="Find verified members who fit your mutual preferences" onPress={()=>router.push('/discover')}/>:null}
+      <Shortcut title="Partner preferences" description="Set the age range, cities and intentions that matter to you" onPress={()=>router.push('/preferences')}/>
       <Shortcut title="Your story" description={details ? 'Review your profile and interests' : 'Tell people what makes you, you'} onPress={()=>router.push('/onboarding')}/>
       <Shortcut title="Profile photo" description={hasPhoto ? 'Photo submitted for private review' : 'Add a genuine photo of yourself'} onPress={()=>router.push('/profile-photo')}/>
       <Shortcut title="Verify your identity" description="Continue secure age and identity checks" onPress={()=>router.push('/verification')}/>
       <View style={s.callout}>
         <Text style={s.calloutTitle}>A safer place to connect</Text>
-        <Text style={s.calloutText}>Your profile is private while identity checks and safety moderation are being completed. Discovery and messaging are coming later.</Text>
+        <Text style={s.calloutText}>Your profile stays private until you choose to join discovery. Likes are private until both people show interest. Chat and compatibility quizzes are next.</Text>
       </View>
       <Pressable style={s.signout} onPress={()=>{void signOut()}}><Text style={s.signoutText}>Sign out</Text></Pressable>
     </ScrollView>
