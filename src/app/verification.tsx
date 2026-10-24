@@ -1,28 +1,49 @@
-import { router } from 'expo-router';
-import { useState } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Redirect, router } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BrandLockup, FormButton, FormError, Love, serif } from '@/components/auth-screens';
-import { apiRequest } from '@/lib/api';
+import { ApiError, apiRequest } from '@/lib/api';
 import { useSession } from '@/lib/session';
 
-type State = { status: string };
+type VerificationState = { status: string };
+
+function friendlyError(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 503) return 'Didit has not been configured on the server handling this request. Check DIDIT_API_KEY and DIDIT_WORKFLOW_ID in the active Render service, then redeploy.';
+    if (error.status === 502) return 'Our identity-verification provider could not complete the request. Please try again later.';
+    if (error.status === 404) return 'This backend does not have the verification endpoint yet. Please deploy the updated LoveBind API.';
+    if (error.status === 500) return 'Identity verification encountered a server issue. Please contact LoveBind support.';
+    return error.message;
+  }
+  return error instanceof Error ? error.message : 'Unable to complete verification. Please try again.';
+}
+
 export default function Verification() {
-  const { token, signOut } = useSession();
+  const { loading, user, token, signOut } = useSession();
   const [consent, setConsent] = useState(false);
   const [status, setStatus] = useState('Not Started');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!token) return;
+    let active = true;
+    apiRequest<VerificationState>('/verification/me', 'GET', undefined, token)
+      .then(result => { if (active) setStatus(result.status); })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [token]);
+
   async function start() {
     if (!token || !consent || busy) return;
     setBusy(true); setError(null);
     try {
-      const result = await apiRequest<{url: string; status: string}>('/verification/session', 'POST', {consent:true}, token);
-      if (!result.url.startsWith('https://')) throw new Error('Verification URL invalid');
+      const result = await apiRequest<{url: string; status: string}>('/verification/session', 'POST', { consent: true }, token);
+      if (!result.url.startsWith('https://')) throw new Error('Invalid verification link');
       await Linking.openURL(result.url);
       setStatus(result.status);
-    } catch (e) { setError(e instanceof Error ? e.message : 'Could not start verification'); }
+    } catch (e) { setError(friendlyError(e)); }
     finally { setBusy(false); }
   }
 
@@ -30,40 +51,51 @@ export default function Verification() {
     if (!token || busy) return;
     setBusy(true); setError(null);
     try {
-      const result = await apiRequest<State>('/verification/refresh', 'POST', {}, token);
+      const result = await apiRequest<VerificationState>('/verification/refresh', 'POST', {}, token);
       setStatus(result.status);
-    } catch (e) { setError(e instanceof Error ? e.message : 'Unable to check verification'); }
+    } catch (e) { setError(friendlyError(e)); }
     finally { setBusy(false); }
   }
+
+  if (loading) return <View style={s.loading}><ActivityIndicator color={Love.wine}/></View>;
+  if (!token || !user) return <Redirect href="/login"/>;
+  const photoStatus = user.profile?.photoReviewStatus;
+  const hasPhoto = photoStatus && photoStatus !== 'NONE';
 
   return <SafeAreaView style={s.safe}><ScrollView contentContainerStyle={s.body}>
     <BrandLockup/>
     <View style={s.progress}><View style={s.active}/><View style={s.active}/><View style={s.active}/></View>
     <Text style={s.overline}>03 / 03 · TRUST & SAFETY</Text>
     <Text style={s.head}>The real you, safely.</Text>
-    <Text style={s.description}>To help make LoveBind a safer place, verify your identity with our verification partner. Your identification documents and selfie are collected by the provider, not by LoveBind.</Text>
+    <Text style={s.description}>Verify your identity with our partner Didit. Your ID document and selfie are submitted directly to the verification provider, not to LoveBind.</Text>
     <View style={s.card}>
-      <Text style={s.cardTitle}>Identity verification by Didit</Text>
-      <Text style={s.cardText}>You will be taken to the secure provider-hosted verification experience for a document check and selfie/liveness check. You can return here to check progress.</Text>
+      <Text style={s.cardTitle}>Identity verification</Text>
+      <Text style={s.cardText}>Didit will guide you through an ID document check and a selfie/liveness check. Return here afterward to check your status.</Text>
       <Text style={s.status}>Status: {status}</Text>
       <Pressable onPress={() => setConsent(!consent)} accessibilityRole="checkbox" accessibilityState={{checked:consent}} style={s.consentRow}>
         <View style={[s.checkbox, consent && s.checked]}><Text style={s.tick}>{consent ? '✓' : ''}</Text></View>
-        <Text style={s.consentText}>I agree to share my identification information with Didit for identity verification. I understand I can stop before submitting.</Text>
+        <Text style={s.consentText}>I consent to Didit processing my identity document and selfie for verification. I can stop before submitting.</Text>
       </Pressable>
-      <FormButton text="Start secure verification" disabled={!consent} busy={busy} onPress={() => {void start()}} />
-      <FormButton text="Check verification status" secondary busy={busy} onPress={() => {void check()}} />
+      <FormButton text="Start secure verification" disabled={!consent} busy={busy} onPress={() => { void start(); }} />
+      <FormButton text="Check verification status" secondary busy={busy} onPress={() => { void check(); }} />
     </View>
     <View style={s.card}>
-      <Text style={s.cardTitle}>Your profile photograph</Text>
-      <Text style={s.cardText}>Profile photos will be available after private storage and image moderation are configured. ID documents will not be used as public profile photos.</Text>
+      <Text style={s.cardTitle}>Your profile photo</Text>
+      <Text style={s.cardText}>{hasPhoto
+        ? photoStatus === 'APPROVED'
+          ? 'Your profile photo has passed review. Your profile remains private until account verification is complete.'
+          : 'Your profile photo was saved privately. Review status: ' + photoStatus + '.'
+        : 'Add a clear, recent photo of yourself. Your photo will remain private until safety review is complete.'}</Text>
+      <FormButton text={hasPhoto ? 'View or change photo' : 'Add profile photo'} secondary onPress={() => router.push('/profile-photo')}/>
     </View>
     <FormError message={error}/>
     <FormButton text="View my profile" secondary onPress={() => router.replace('/profile')}/>
-    <Pressable onPress={() => {void signOut()}} style={s.signout}><Text style={s.signoutText}>Sign out</Text></Pressable>
+    <Pressable onPress={() => { void signOut(); }} style={s.signout}><Text style={s.signoutText}>Sign out</Text></Pressable>
   </ScrollView></SafeAreaView>;
 }
 const s=StyleSheet.create({
   safe:{flex:1,backgroundColor:Love.paper},
+  loading:{flex:1,backgroundColor:Love.paper,justifyContent:'center',alignItems:'center'},
   body:{maxWidth:500,width:'100%',alignSelf:'center',padding:26,gap:20},
   overline:{color:Love.wine,letterSpacing:2,fontSize:11,fontWeight:'700',marginTop:20},
   head:{fontFamily:serif,color:Love.ink,fontSize:42,lineHeight:48},
