@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main, feat/lovebind-dev-foundation]
+    branches: [main, feat/lovebind-dev-foundation, feat/admin-react-crm]
   workflow_dispatch:
 
 permissions:

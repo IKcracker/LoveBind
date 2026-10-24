@@ -1,12 +1,12 @@
 name: LoveBind Admin CRM
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feat/photo-moderation-activation]
     paths:
       - 'admin/**'
       - '.github/workflows/admin-crm.yml'
   push:
-    branches: [main]
+    branches: [main, feat/admin-react-crm]
     paths:
       - 'admin/**'
   workflow_dispatch:
