@@ -25,7 +25,10 @@ jobs:
           node-version: '22'
       - name: Install React CRM dependencies
         working-directory: admin
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
+      - name: Check committed lockfile
+        working-directory: admin
+        run: git diff --exit-code -- package-lock.json
       - name: Typecheck and build React CRM
         working-directory: admin
         run: npm run build
