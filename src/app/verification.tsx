@@ -7,13 +7,12 @@ import { ApiError, apiRequest } from '@/lib/api';
 import { useSession } from '@/lib/session';
 
 type VerificationState = { status: string };
-type VerificationConfig = { provider: string; available: boolean };
 
 function friendlyError(error: unknown): string {
   if (error instanceof ApiError) {
-    if (error.status === 503) return 'Identity verification has not been enabled on the API yet. Please try again once the service is configured.';
+    if (error.status === 503) return 'Didit has not been configured on the server handling this request. Check DIDIT_API_KEY and DIDIT_WORKFLOW_ID in the active Render service, then redeploy.';
     if (error.status === 502) return 'Our identity-verification provider could not complete the request. Please try again later.';
-    if (error.status === 404) return 'The app and API are on different versions. Please update the LoveBind backend.';
+    if (error.status === 404) return 'This backend does not have the verification endpoint yet. Please deploy the updated LoveBind API.';
     if (error.status === 500) return 'Identity verification encountered a server issue. Please contact LoveBind support.';
     return error.message;
   }
@@ -24,16 +23,12 @@ export default function Verification() {
   const { loading, user, token, signOut } = useSession();
   const [consent, setConsent] = useState(false);
   const [status, setStatus] = useState('Not Started');
-  const [configured, setConfigured] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) return;
     let active = true;
-    apiRequest<VerificationConfig>('/verification/config', 'GET', undefined, token)
-      .then(result => { if (active) setConfigured(result.available); })
-      .catch(() => { if (active) setConfigured(false); });
     apiRequest<VerificationState>('/verification/me', 'GET', undefined, token)
       .then(result => { if (active) setStatus(result.status); })
       .catch(() => undefined);
@@ -41,7 +36,7 @@ export default function Verification() {
   }, [token]);
 
   async function start() {
-    if (!token || !consent || busy || configured !== true) return;
+    if (!token || !consent || busy) return;
     setBusy(true); setError(null);
     try {
       const result = await apiRequest<{url: string; status: string}>('/verification/session', 'POST', { consent: true }, token);
@@ -53,7 +48,7 @@ export default function Verification() {
   }
 
   async function check() {
-    if (!token || busy || configured !== true) return;
+    if (!token || busy) return;
     setBusy(true); setError(null);
     try {
       const result = await apiRequest<VerificationState>('/verification/refresh', 'POST', {}, token);
@@ -77,14 +72,12 @@ export default function Verification() {
       <Text style={s.cardTitle}>Identity verification</Text>
       <Text style={s.cardText}>Didit will guide you through an ID document check and a selfie/liveness check. Return here afterward to check your status.</Text>
       <Text style={s.status}>Status: {status}</Text>
-      {configured === false ? <Text style={s.notice}>Verification is not available in this environment yet. Your account remains private.</Text> : null}
-      {configured === null ? <ActivityIndicator color={Love.wine}/> : null}
       <Pressable onPress={() => setConsent(!consent)} accessibilityRole="checkbox" accessibilityState={{checked:consent}} style={s.consentRow}>
         <View style={[s.checkbox, consent && s.checked]}><Text style={s.tick}>{consent ? '✓' : ''}</Text></View>
         <Text style={s.consentText}>I consent to Didit processing my identity document and selfie for verification. I can stop before submitting.</Text>
       </Pressable>
-      <FormButton text="Start secure verification" disabled={!consent || configured !== true} busy={busy} onPress={() => { void start(); }} />
-      <FormButton text="Check verification status" secondary disabled={configured !== true} busy={busy} onPress={() => { void check(); }} />
+      <FormButton text="Start secure verification" disabled={!consent} busy={busy} onPress={() => { void start(); }} />
+      <FormButton text="Check verification status" secondary busy={busy} onPress={() => { void check(); }} />
     </View>
     <View style={s.card}>
       <Text style={s.cardTitle}>Your profile photo</Text>
@@ -111,7 +104,6 @@ const s=StyleSheet.create({
   cardTitle:{color:Love.ink,fontSize:18,fontWeight:'700'},
   cardText:{color:Love.muted,fontSize:14,lineHeight:21},
   status:{color:Love.wine,fontWeight:'700',fontSize:13},
-  notice:{backgroundColor:Love.errorBg,color:Love.wine,borderRadius:8,padding:12,lineHeight:20,fontSize:13},
   consentRow:{flexDirection:'row',gap:12,alignItems:'center'},
   checkbox:{width:22,height:22,borderWidth:1,borderColor:Love.wine,borderRadius:4,justifyContent:'center',alignItems:'center'},
   checked:{backgroundColor:Love.wine},
