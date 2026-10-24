@@ -1,21 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 import { useColorScheme as useRNColorScheme } from 'react-native';
 
-/**
- * To support static rendering, this value needs to be re-calculated on the client side for web
- */
+// Keep server-rendered web markup stable and read the theme after hydration.
+function subscribe(): () => void { return () => undefined; }
+function getClientSnapshot(): boolean { return true; }
+function getServerSnapshot(): boolean { return false; }
+
 export function useColorScheme() {
-  const [hasHydrated, setHasHydrated] = useState(false);
-
-  useEffect(() => {
-    setHasHydrated(true);
-  }, []);
-
+  const hydrated = useSyncExternalStore(subscribe, getClientSnapshot, getServerSnapshot);
   const colorScheme = useRNColorScheme();
-
-  if (hasHydrated) {
-    return colorScheme;
-  }
-
-  return 'light';
+  return hydrated ? colorScheme : 'light';
 }

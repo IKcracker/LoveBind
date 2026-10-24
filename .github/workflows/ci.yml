@@ -1,0 +1,171 @@
+name: LoveBind CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, feat/lovebind-dev-foundation]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lovebind-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secret-hygiene:
+    name: secret-hygiene
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check tracked files for secrets and environment files
+        run: node .github/scripts/check-secrets.cjs
+
+  mobile:
+    name: mobile-quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: "1"
+      EXPO_NO_TELEMETRY: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install locked dependencies
+        run: npm install --no-audit --no-fund
+      - name: Check TypeScript before Expo dependency analysis
+        run: npm run typecheck
+      - name: Check Expo SDK dependency versions
+        run: npx expo install --check
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Bundle Android JS
+        run: npx expo export --platform android --output-dir dist-ci/android
+      - name: Bundle iOS JS
+        run: npx expo export --platform ios --output-dir dist-ci/ios
+      - name: Require a committed up-to-date mobile lockfile
+        run: git diff --exit-code -- package-lock.json
+
+  api:
+    name: api-quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: "1"
+      DATABASE_URL: "postgresql://lovebind:ci-only@127.0.0.1:5432/lovebind?schema=public"
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          package-manager-cache: false
+      - name: Install locked API dependencies
+        run: npm install --no-audit --no-fund
+      - name: Validate database schema
+        run: npm run prisma:validate
+      - name: Generate Prisma client
+        run: npm run prisma:generate
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm test
+      - name: Build API
+        run: npm run build
+      - name: Require committed API lockfile
+        run: |
+          git ls-files --error-unmatch package-lock.json
+          git diff --exit-code -- package-lock.json
+
+  postgres-integration:
+    name: postgres-integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: lovebind
+          POSTGRES_PASSWORD: ci-only
+          POSTGRES_DB: lovebind
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U lovebind -d lovebind"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: "postgresql://lovebind:ci-only@127.0.0.1:5432/lovebind?schema=public"
+      NODE_ENV: test
+      CI: "1"
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          package-manager-cache: false
+      - name: Install locked API dependencies
+        run: npm install --no-audit --no-fund
+      - name: Validate Prisma and prepare isolated database
+        run: |
+          npx prisma validate
+          npx prisma generate
+          npx prisma db push --skip-generate
+      - name: Build backend for HTTP integration tests
+        run: npm run build
+      - name: Exercise real API and PostgreSQL
+        run: node scripts/integration-smoke.cjs
+      - name: Require committed API lockfile
+        run: |
+          git ls-files --error-unmatch package-lock.json
+          git diff --exit-code -- package-lock.json
+
+  dependency-audit:
+    name: dependency-audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          package-manager-cache: false
+      - name: Audit mobile production dependencies
+        run: npm audit --omit=dev --audit-level=high
+      - name: Audit API production dependencies
+        working-directory: server
+        run: npm audit --omit=dev --audit-level=high
+
+  quality-gate:
+    name: quality-gate
+    if: always()
+    needs: [secret-hygiene, mobile, api, postgres-integration, dependency-audit]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Block merging unless all mandatory checks succeed
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          node - <<'NODE'
+          const jobs = JSON.parse(process.env.RESULTS);
+          for (const [name, value] of Object.entries(jobs)) {
+            console.log(name + ': ' + value.result);
+            if (value.result !== 'success') process.exitCode = 1;
+          }
+          NODE
