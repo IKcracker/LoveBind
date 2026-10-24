@@ -28,15 +28,17 @@ include the CRM's actual HTTPS origin. Never use `*` for the admin app.
 
 ## Authentication and authorization
 
-- Log in using an **existing LoveBind email/password** account.
+- For a dedicated administrator, set `LOVEBIND_ADMIN_EMAIL` and `LOVEBIND_ADMIN_PASSWORD` (16–128 characters) on the **backend only** and restart it. The server creates a separate, profile-less moderator account with hashed credentials. You can then use those credentials at the CRM login screen. Do not register that email as a dating member first.
+- Existing moderators may continue to use LoveBind credentials with `LOVEBIND_MODERATOR_IDS`.
 - Before admitting the user to the CRM, the client calls
   `GET /moderation/access`. The NestJS API also checks
   `LOVEBIND_MODERATOR_IDS` on **every** admin/moderation endpoint.
-- In your **staging Render backend** set
+- Alternatively, in your **staging Render backend** set
   `LOVEBIND_MODERATOR_IDS=moderator_user_id[,other_moderator_id]`.
   Use `User.id` from the moderator's own `GET /auth/me` or trusted DB
   inspection. Do not use email addresses, admin passwords, or secrets here.
-- Use a **different moderator account** to review your own membership.
+- The environment-bootstrap admin is not a dating profile and is hidden from member queues. A different moderator is required to review any member who is also authorized to moderate.
+- Removing either admin environment variable disables its moderation permission; changing the password revokes previous sessions at startup.
 - Browser bearer tokens are held only in React memory. Refreshing the page
   requires signing in again. They are never stored in localStorage, cookie,
   or sessionStorage.
