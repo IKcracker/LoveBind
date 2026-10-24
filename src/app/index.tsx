@@ -5,13 +5,12 @@ import { ActionButton, Brand, Heading, InfoCard, Page } from '@/components/loveb
 import { BrandLockup, Love, serif } from '@/components/auth-screens';
 import { useSession } from '@/lib/session';
 
-const HERO_URL = 'https://images.unsplash.com/photo-1771946892179-41c95be77cfd?fm=jpg&fit=crop&w=1200&h=1800&q=80';
 
 function WelcomeScreen() {
   return (
     <View style={styles.background}>
       <ImageBackground
-        source={{ uri: HERO_URL }}
+        source={require('../../assets/images/lovebind-hero.jpg')}
         resizeMode="cover"
         style={StyleSheet.absoluteFillObject}
         imageStyle={styles.photo}
