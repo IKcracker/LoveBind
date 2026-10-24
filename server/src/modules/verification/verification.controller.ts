@@ -83,6 +83,9 @@ export class VerificationController {
       : 'PENDING';
     const ageVerifiedAt = ageEvidenceStatus === 'VERIFIED' ? new Date() : null;
     const activated = await this.prisma.$transaction(async tx => {
+      if (ageEvidenceStatus !== 'VERIFIED' || status !== 'Approved') {
+        await tx.user.update({ where: { id: request.authUserId }, data: { adminApprovalStatus: 'PENDING' } });
+      }
       await tx.identityVerification.update({ where: { userId: request.authUserId },
         data: { status, lastCheckedAt: new Date(), ageEvidenceStatus, ageVerifiedAt } });
       return reconcileAccount(tx, request.authUserId);

@@ -67,7 +67,7 @@ export class AuthService {
     return this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
       select: {
-        id: true, status: true, createdAt: true,
+        id: true, status: true, adminApprovalStatus: true, createdAt: true,
         credential: { select: { email: true } },
         profile: { select: {
           displayName: true, birthDate: true, bio: true, city: true, cityPlaceId: true,

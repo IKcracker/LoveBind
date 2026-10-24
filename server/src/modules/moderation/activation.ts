@@ -9,8 +9,9 @@ function age(birth: Date, now: Date): number {
   return years;
 }
 
-export function approvedForActivation(record: {
+export function eligibleForAdminApproval(record: {
   status: string;
+  adminApprovalStatus: string;
   identityVerification: { status: string; ageEvidenceStatus: string; ageVerifiedAt: Date | null } | null;
   profile: { birthDate: Date; city: string | null; bio: string | null; relationshipGoal: string | null;
     photoObjectKey: string | null; photoReviewStatus: string } | null;
@@ -27,14 +28,14 @@ export function approvedForActivation(record: {
 
 export async function reconcileAccount(db: Database, userId: string): Promise<boolean> {
   const user = await db.user.findUniqueOrThrow({ where: { id: userId }, select: {
-    status: true,
+    status: true, adminApprovalStatus: true,
     identityVerification: { select: { status: true, ageEvidenceStatus: true, ageVerifiedAt: true } },
     profile: { select: { birthDate: true, city: true, bio: true, relationshipGoal: true,
       photoObjectKey: true, photoReviewStatus: true } },
   } });
   // Moderation never restores a suspended or deleted account.
   if (user.status === 'DELETED' || user.status === 'SUSPENDED') return false;
-  const activated = approvedForActivation(user);
+  const activated = eligibleForAdminApproval(user) && user.adminApprovalStatus === 'APPROVED';
   if (user.status !== (activated ? 'ACTIVE' : 'PENDING')) {
     await db.user.update({ where: { id: userId },
       data: { status: activated ? 'ACTIVE' : 'PENDING' } });

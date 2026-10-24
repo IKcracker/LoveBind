@@ -51,6 +51,7 @@ model User {
   id          String @id @default(cuid())
   authSubject String @unique
   status      AccountStatus @default(PENDING)
+  adminApprovalStatus String @default("PENDING")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   profile     Profile?
@@ -72,6 +73,8 @@ model User {
   consents     ConsentRecord[]
   identityVerification IdentityVerification?
   photoReviewsMade PhotoModerationReview[] @relation("PhotoReviewModerator")
+  accountDecisionsMade AccountModerationDecision[] @relation("AccountReviewer")
+  accountDecisionsReceived AccountModerationDecision[] @relation("AccountReviewed")
 }
 
 model Profile {
@@ -345,4 +348,17 @@ model PhotoModerationReview {
 
   @@index([profileUserId, reviewedAt])
   @@index([moderatorId, reviewedAt])
+}
+
+model AccountModerationDecision {
+  id String @id @default(cuid())
+  userId String
+  user User @relation("AccountReviewed", fields: [userId], references: [id], onDelete: Cascade)
+  moderatorId String
+  moderator User @relation("AccountReviewer", fields: [moderatorId], references: [id])
+  decision String @db.VarChar(20)
+  reason String? @db.VarChar(500)
+  createdAt DateTime @default(now())
+  @@index([userId, createdAt])
+  @@index([moderatorId, createdAt])
 }
