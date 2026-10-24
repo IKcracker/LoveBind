@@ -64,6 +64,12 @@ export default function ConversationScreen(){
    {thread?<Pressable accessibilityRole="button" accessibilityLabel="Safety options" onPress={()=>router.push({pathname:'/member-safety',params:{memberId:thread.other.id,name:thread.other.name,matchId}})} style={s.headerAction}>
       <Icon name="shield" size={22} color={Love.wine}/></Pressable>:<View style={s.headerAction}/>}
   </View>
+  {thread?<Pressable accessibilityRole="button" accessibilityLabel="Open your compatibility quiz"
+    onPress={()=>router.push({pathname:'/quiz/[matchId]',params:{matchId:matchId!}})}
+    style={s.quizCta}>
+    <Text style={s.quizText}>♡ Explore our compatibility quiz</Text>
+    <Text style={s.quizHint}>Seven questions · Private answers · Shared insight</Text>
+  </Pressable>:null}
   {error?<View style={s.errorBox}><Notice tone="error" message={error}/><Pressable onPress={reload}><Text style={s.retry}>Retry</Text></Pressable></View>:null}
   <KeyboardAvoidingView style={s.body} behavior={Platform.OS==='ios'?'padding':undefined} keyboardVerticalOffset={8}>
    <ScrollView contentContainerStyle={s.messages} keyboardShouldPersistTaps="handled">
