@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -25,7 +25,8 @@ export default function MatchesScreen() {
   finally{setPending(false)}
  }
  useEffect(()=>{if(token)void load();},[token]);
- if(loading||!token||!user)return <View style={s.loading}><ActivityIndicator color={Love.wine}/></View>;
+ if(loading)return <View style={s.loading}><ActivityIndicator color={Love.wine}/></View>;
+ if(!token||!user)return <Redirect href="/login"/>;
  return <SafeAreaView style={s.safe}>
   <ScrollView style={s.scroll} contentContainerStyle={s.container}>
    <View style={s.header}><BrandLockup/><Text style={s.eyebrow}>YOUR CONNECTIONS</Text></View>

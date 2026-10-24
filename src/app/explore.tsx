@@ -1,6 +1,6 @@
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BrandLockup, Love, serif } from '@/components/auth-screens';
 import { LoveBindNav } from '@/components/lovebind-nav';
@@ -58,7 +58,8 @@ export default function DiscoverScreen() {
   catch(e){setError(e instanceof Error?e.message:'Could not report member');}
   finally{setBusy(false)}
  }
- if(loading||!user||!token)return <View style={s.center}><ActivityIndicator color={Love.wine}/></View>;
+ if(loading)return <View style={s.center}><ActivityIndicator color={Love.wine}/></View>;
+ if(!user||!token)return <Redirect href="/login"/>;
  const ready=data?.access.ready===true;
  const missing=data?.access.missing??[];
  return <SafeAreaView style={s.safe} edges={['top','left','right','bottom']}>
@@ -120,15 +121,22 @@ export default function DiscoverScreen() {
     <Pressable style={s.option} onPress={()=>router.push('/preferences')}><Text style={s.optionText}>Adjust preferences</Text><Text style={s.arrow}>→</Text></Pressable>
    </View>}
    {notice?<Text style={s.notice}>{notice}</Text>:null}
-   {matched?<View style={s.matchBox}><Text style={s.matchTitle}>It’s a match!</Text><Text style={s.matchBody}>You both liked each other. Start a meaningful conversation.</Text>
-    <Pressable style={s.primary} onPress={()=>{const id=matched;setMatched(null);router.push({pathname:'/conversations/[matchId]',params:{matchId:id}})}}>
-     <Text style={s.primaryText}>Say hello →</Text></Pressable>
-    <Pressable onPress={()=>setMatched(null)}><Text style={s.later}>Keep discovering</Text></Pressable>
-   </View>:null}
    {error?<Text style={s.error}>{error}</Text>:null}
    <Pressable style={s.refresh} onPress={()=>void refresh()} disabled={loadingList}><Text style={s.refreshText}>↻  Refresh discovery</Text></Pressable>
   </ScrollView>
   <LoveBindNav active="discover"/>
+  <Modal visible={matched!==null} transparent animationType="fade" onRequestClose={()=>setMatched(null)}>
+    <View style={s.modalBack}><View style={s.modalCard}>
+      <Text style={s.modalHeart}>♡</Text>
+      <Text style={s.matchTitle}>It's a match!</Text>
+      <Text style={s.matchBody}>You both liked each other. Start a meaningful conversation.</Text>
+      <Pressable style={s.primary} onPress={()=>{
+        const id=matched;
+        if(id){setMatched(null);router.push({pathname:'/conversations/[matchId]',params:{matchId:id}});}
+      }}><Text style={s.primaryText}>Say hello →</Text></Pressable>
+      <Pressable onPress={()=>setMatched(null)} style={s.modalLater}><Text style={s.later}>Keep discovering</Text></Pressable>
+    </View></View>
+  </Modal>
  </SafeAreaView>;
 }
 const s=StyleSheet.create({
@@ -158,7 +166,9 @@ const s=StyleSheet.create({
  danger:{fontSize:14,fontWeight:'700',color:Love.error},confirm:{gap:13},label:{fontWeight:'700',fontSize:12,color:Love.ink},
  report:{paddingVertical:10,borderBottomWidth:1,borderColor:Love.line},
  notice:{color:Love.wine,textAlign:'center',padding:12,marginTop:10,fontSize:13},
- matchBox:{marginTop:22,backgroundColor:'#F3E6E9',padding:24,borderRadius:15,gap:13},
+ modalBack:{flex:1,backgroundColor:'rgba(30,15,28,.55)',alignItems:'center',justifyContent:'center',padding:25},
+ modalCard:{width:'100%',maxWidth:460,backgroundColor:Love.white,borderRadius:20,padding:30,gap:18},
+ modalHeart:{fontSize:62,color:Love.blush,textAlign:'center'},modalLater:{alignItems:'center',padding:10},
  matchTitle:{fontFamily:serif,color:Love.wine,fontSize:30},matchBody:{color:Love.ink,fontSize:14,lineHeight:22},
  later:{color:Love.wine,textAlign:'center',padding:8,fontWeight:'700'},
  error:{color:Love.error,backgroundColor:Love.errorBg,padding:14,marginTop:16,borderRadius:8,fontSize:13},

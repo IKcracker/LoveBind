@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ScrollViewInstance } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -51,7 +51,8 @@ export default function ConversationScreen(){
   catch(e){setError(e instanceof Error?e.message:'Unable to block this member');}
   finally{setBusy(false)}
  }
- if(loading||!token||!user)return <View style={s.center}><ActivityIndicator color={Love.wine}/></View>;
+ if(loading)return <View style={s.center}><ActivityIndicator color={Love.wine}/></View>;
+ if(!token||!user)return <Redirect href="/login"/>;
  return <SafeAreaView style={s.safe} edges={['top','left','right','bottom']}>
   <KeyboardAvoidingView style={s.flex} behavior={Platform.OS==='ios'?'padding':undefined} keyboardVerticalOffset={10}>
    <View style={s.header}>
