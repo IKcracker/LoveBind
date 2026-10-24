@@ -22,7 +22,7 @@ export class AgeRecheckService {
     // DB-backed per-member lock works across Render instances and prevents a stampede.
     const cutoff = new Date(Date.now()-COOLDOWN_MS);
     const claim = await this.prisma.$transaction(async tx=>{
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${memberId}, 971))`;
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${memberId}, 971))::text AS lock_acquired`;
       const recent=await tx.ageEvidenceRecheck.findFirst({where:{memberId,checkedAt:{gt:cutoff}},
         orderBy:{checkedAt:'desc'},select:{id:true}});
       if(recent)throw new ConflictException('Recently rechecked. Try again in five minutes');
