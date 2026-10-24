@@ -60,6 +60,7 @@ export default function ConversationScreen(){
   <View style={s.header}>
    <Pressable accessibilityRole="button" accessibilityLabel="Back to matches" onPress={()=>router.navigate('/matches')} style={s.headerAction}><Icon name="back" size={22} color={Love.ink}/></Pressable>
    <View style={s.headerTitle}><Text style={s.member}>{thread?.other.name||'Private chat'}</Text><Text style={s.hint}>Verified connection · Private chat</Text></View>
+   <Pressable accessibilityRole="button" accessibilityLabel="Refresh messages" onPress={reload} style={s.headerAction}><Icon name="refresh" size={20} color={Love.wine}/></Pressable>
    {thread?<Pressable accessibilityRole="button" accessibilityLabel="Safety options" onPress={()=>router.push({pathname:'/member-safety',params:{memberId:thread.other.id,name:thread.other.name,matchId}})} style={s.headerAction}>
       <Icon name="shield" size={22} color={Love.wine}/></Pressable>:<View style={s.headerAction}/>}
   </View>
