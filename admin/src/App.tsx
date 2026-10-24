@@ -303,7 +303,7 @@ export default function App(){
           <strong>{x.source} · {x.outcome} · {x.resultStatus||x.previousStatus}</strong>
           <small>{x.issue||'No verification issue recorded'}</small>
          </div><span>{DATE_TIME(x.checkedAt)}</span></div>)}
-        </div>
+        </div>}
       </div>
       <div className="drawer-section"><div className="drawer-title"><h4>About this member</h4><CircleHelp size={17}/></div>
        <div className="detail-two-col"><div><span>City</span><strong>{detail.profile?.city||'Not set'}</strong></div><div><span>Occupation</span><strong>{detail.profile?.occupation||'Not set'}</strong></div><div><span>Looking for</span><strong>{detail.profile?.relationshipGoal||'Not set'}</strong></div><div><span>Profile visibility</span><strong>{detail.profile?.visible?'Visible':'Private'}</strong></div></div>
