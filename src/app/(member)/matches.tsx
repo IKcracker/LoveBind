@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { MemberSafetyLink } from '@/components/member-safety-link';
 import { Love } from '@/components/auth-screens';
 import { Avatar, Card, EmptyState, LockedState, Notice, PageTitle, TabScreen } from '@/components/member-ui';
@@ -31,12 +31,12 @@ export default function Matches() {
               <View key={m.id} style={styles.stripItem}>
                 <View style={styles.ring}><Avatar name={m.name} size={60} /></View>
                 <Text style={styles.stripName} numberOfLines={1}>{m.name.split(' ')[0]}</Text>
-              </View>
+              </Pressable>
             ))}
           </View>
           <Card style={styles.list}>
             {matches.map((m, i) => (
-              <View key={m.id} style={[styles.row, i < matches.length - 1 && styles.divider]}>
+              <Pressable key={m.id} accessibilityRole="button" accessibilityLabel={'Chat with ' + m.name} onPress={() => router.push({pathname:'/chat/[matchId]',params:{matchId:m.id}})} style={[styles.row, i < matches.length - 1 && styles.divider]}>
                 <Avatar name={m.name} size={50} />
                 <View style={styles.info}>
                   <Text style={styles.name}>{m.name}</Text>
