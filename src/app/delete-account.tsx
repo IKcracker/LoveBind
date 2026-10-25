@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { AuthField, FormButton, FormError, Love } from '@/components/auth-screens';
 import { LoadingScreen, StackScreen } from '@/components/member-ui';
 import { useSession } from '@/lib/session';
+import { ApiError } from '@/lib/api';
 
 export default function DeleteAccountScreen() {
   const { loading, user, token, deleteAccount } = useSession();
@@ -21,8 +22,10 @@ export default function DeleteAccountScreen() {
     try {
       await deleteAccount(password);
       router.replace('/account-deleted');
-    } catch {
-      setError('Deletion was not confirmed. Check your connection and current password, then retry. After five attempts, wait 15 minutes. If your session expired, sign in again; a completed deletion cannot be undone.');
+    } catch (failure) {
+      if (failure instanceof ApiError && failure.status === 429) setError('Too many confirmation attempts. Please wait 15 minutes before trying again.');
+      else if (failure instanceof ApiError && failure.status === 503) setError('Account deletion is not available yet. Please contact LoveBind support.');
+      else setError('Deletion was not confirmed. Check your connection and current password, then retry. After five attempts, wait 15 minutes. If your session expired, sign in again; a completed deletion cannot be undone.');
     } finally {
       setPassword(''); submitting.current = false; setBusy(false);
     }
@@ -40,7 +43,7 @@ export default function DeleteAccountScreen() {
     <FormError message={error} />
     <View style={s.actions}>
       <FormButton text="Permanently delete my account" busy={busy} disabled={!password || confirmation !== 'DELETE'} onPress={() => { void remove(); }} />
-      <FormButton text="Keep my account" disabled={busy} onPress={() => router.back()} />
+      <FormButton text="Keep my account" secondary disabled={busy} onPress={() => router.back()} />
     </View>
   </StackScreen>;
 }

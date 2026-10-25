@@ -33,6 +33,14 @@ module.exports = async function deletionIntegration(call, adminToken) {
     const matchId = matchResult.json.matchId;
     assert.equal((await call('/conversations/' + matchId + '/messages', 'POST', { content: 'Erase this conversation' }, a.token)).status, 201);
     assert.equal((await call('/quizzes/matches/' + matchId + '/start', 'POST', {}, a.token)).status, 201);
+    const quiz = await db.quizSession.findFirst({ where: { matchId } });
+    await db.quizAnswer.createMany({ data: [a, b].map(m => ({ sessionId: quiz.id, userId: m.id,
+      questionId: 'fixture', ciphertext: require('../dist/modules/quizzes/quiz-crypto').encryptQuizAnswer(3) })) });
+    await db.compatibilityAssessment.create({ data: { sessionId: quiz.id, score: 70,
+      rubricVersion: 'fixture', summary: { explanation: 'Sensitive shared inference' } } });
+    await db.dateRequest.create({ data: { matchId, requesterId: a.id, inviteeId: b.id,
+      startsAt: new Date(Date.now() + 86400000), placeText: 'Private meeting location',
+      quotedCredits: 1, quoteVersion: 'fixture', expiresAt: new Date(Date.now() + 86400000) } });
     const report = await db.safetyReport.create({ data: { reporterId: b.id, reportedId: a.id, category: 'SCAM', details: 'Restricted safety evidence' } });
     const moderator = await call('/auth/me', 'GET', undefined, adminToken);
     await db.photoModerationReview.create({ data: { profileUserId: a.id, moderatorId: moderator.json.id,
@@ -48,6 +56,11 @@ module.exports = async function deletionIntegration(call, adminToken) {
     assert.equal((await db.match.findUnique({ where: { id: matchId } })).status, 'CLOSED');
     assert.equal(await db.conversation.count({ where: { matchId } }), 0);
     assert.equal(await db.quizSession.count({ where: { matchId } }), 0);
+    assert.equal(await db.quizAnswer.count({ where: { sessionId: quiz.id } }), 0);
+    assert.equal(await db.compatibilityAssessment.count({ where: { sessionId: quiz.id } }), 0);
+    const cancelledDate = await db.dateRequest.findFirst({ where: { matchId } });
+    assert.equal(cancelledDate.status, 'CANCELLED');
+    assert.equal(cancelledDate.placeText, null);
     for (const token of [a.token, second.json.accessToken])
       assert.equal((await call('/auth/me', 'GET', undefined, token)).status, 401, 'all sessions invalid');
     assert.equal((await remove(a)).status, 401, 'replay cannot repeat work');
