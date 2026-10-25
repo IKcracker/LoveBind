@@ -67,6 +67,9 @@ export default function Onboarding() {
       <AuthField label="Introduce yourself" value={bio} onChangeText={setBio} placeholder="Your passions, personality and values…" multiline maxLength={1000} style={styles.bio} />
       <FormError message={error} />
       <FormButton text="Save and add photo" busy={busy} onPress={() => { void submit(); }} />
+      <Pressable onPress={() => router.push('/delete-account')} style={styles.signout} accessibilityRole="button">
+        <Text style={styles.signoutText}>Delete account</Text>
+      </Pressable>
       <Pressable onPress={() => { void signOut(); }} style={styles.signout} accessibilityRole="button">
         <Text style={styles.signoutText}>Sign out</Text>
       </Pressable>

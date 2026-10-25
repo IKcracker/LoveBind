@@ -126,6 +126,7 @@ jobs:
           npx prisma validate
           npx prisma generate
           npx prisma db push --skip-generate
+          npx prisma db execute --file prisma/deletion-guards.sql
       - name: Build backend for HTTP integration tests
         run: npm run build
       - name: Exercise real API and PostgreSQL

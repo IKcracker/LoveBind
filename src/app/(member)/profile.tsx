@@ -82,6 +82,7 @@ export default function ProfileTab() {
       </Card>
 
       <Card style={styles.list}>
+        <ListRow icon="shield" label="Delete account" detail="Permanently leave LoveBind" href="/delete-account" danger />
         <ListRow icon="signOut" label={busy ? 'Signing out…' : 'Sign out'} danger last onPress={() => { setBusy(true); void signOut(); }} />
       </Card>
     </TabScreen>

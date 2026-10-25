@@ -54,7 +54,7 @@ export class AuthService {
     });
     // Use identical public errors whether email exists or password is wrong.
     if (!credential || !(await verifyPassword(password, credential.passwordHash)) ||
-        credential.user.status === 'DELETED' || credential.user.status === 'SUSPENDED') {
+        credential.user.status === 'DELETED') {
       throw new UnauthorizedException('Invalid credentials or account unavailable');
     }
     return {

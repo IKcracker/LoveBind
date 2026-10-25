@@ -8,12 +8,13 @@
     "start": "node dist/main.js",
     "build": "npm run prisma:generate && tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "node --test --require ts-node/register src/modules/quizzes/questions.test.ts src/modules/conversations/message-crypto.test.ts src/modules/compatibility/scoring.test.ts src/modules/auth/auth.validation.test.ts src/modules/moderation/activation.test.ts src/modules/discovery/eligibility.test.ts",
+    "test": "node --test --require ts-node/register src/modules/quizzes/questions.test.ts src/modules/conversations/message-crypto.test.ts src/modules/compatibility/scoring.test.ts src/modules/auth/auth.validation.test.ts src/modules/moderation/activation.test.ts src/modules/discovery/eligibility.test.ts src/modules/account-deletion/deletion.test.ts",
     "prisma:generate": "node scripts/prisma-cli.cjs generate",
     "prisma:validate": "node scripts/prisma-cli.cjs validate",
     "prisma:migrate": "node scripts/prisma-cli.cjs migrate dev",
     "prisma:deploy": "node scripts/prisma-cli.cjs migrate deploy",
-    "prisma:status": "node scripts/prisma-cli.cjs migrate status"
+    "prisma:status": "node scripts/prisma-cli.cjs migrate status",
+    "deletion:cleanup": "node scripts/deletion-cleanup.cjs"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { apiRequest, ApiError } from './api';
@@ -31,6 +31,7 @@ type SessionContextValue = {
   signUp: (body: RegisterRequest) => Promise<void>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
+  deleteAccount: (password: string) => Promise<void>;
 };
 
 const KEY = 'lovebind.session.token.v1';
@@ -53,6 +54,7 @@ async function fetchCurrentUser(token: string): Promise<CurrentUser> {
 }
 
 export function SessionProvider({ children }: { children: ReactNode }) {
+  const sessionGeneration = useRef(0);
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<CurrentUser | null>(null);
@@ -97,6 +99,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [establish]);
 
   const signOut = useCallback(async () => {
+    sessionGeneration.current++;
+    setUser(null); setToken(null);
     try {
       if (token) await apiRequest('/auth/logout', 'POST', {}, token);
     } catch {
@@ -110,8 +114,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     if (!token) throw new ApiError('Please sign in again.', 401);
+    const generation = sessionGeneration.current;
     try {
-      setUser(await fetchCurrentUser(token));
+      const current = await fetchCurrentUser(token);
+      if (generation === sessionGeneration.current) setUser(current);
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
         await clearToken().catch(() => undefined);
@@ -122,9 +128,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
   }, [token]);
 
+  const deleteAccount = useCallback(async (password: string) => {
+    if (!token) throw new ApiError('Please sign in again.', 401);
+    await apiRequest('/account/delete', 'POST', { password, confirmation: 'DELETE' }, token);
+    // Invalidate pending refreshes before clearing local state and secure storage.
+    sessionGeneration.current++;
+    setUser(null); setToken(null);
+    await clearToken().catch(() => undefined);
+  }, [token]);
+
   const value = useMemo(() => ({
-    loading, token, user, signIn, signUp, signOut, refresh,
-  }), [loading, token, user, signIn, signUp, signOut, refresh]);
+    loading, token, user, signIn, signUp, signOut, refresh, deleteAccount,
+  }), [loading, token, user, signIn, signUp, signOut, refresh, deleteAccount]);
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }

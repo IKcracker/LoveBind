@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Get, Post, Body, Req, ServiceUnavailableException, UseGuards, NotFoundException } from '@nestjs/common';
+import { UnauthorizedException, BadRequestException, Controller, Get, Post, Body, Req, ServiceUnavailableException, UseGuards, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { S3Client, PutObjectCommand, HeadObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -36,13 +36,17 @@ export class PhotoController {
         input.size < 1024 || input.size > MAX_BYTES) {
       throw new BadRequestException('Choose a JPEG, PNG or WebP photo smaller than 5 MB');
     }
+    return this.prisma.$transaction(async tx => {
+      const users = await tx.$queryRaw<{ status: string }[]>`SELECT "status" FROM "User" WHERE "id" = ${req.authUserId} FOR SHARE`;
+      if (!users[0] || ['DELETED', 'SUSPENDED'].includes(users[0].status)) throw new UnauthorizedException('Account unavailable');
     const { client, bucket } = storage();
     const key = 'profiles/' + req.authUserId + '/' + randomUUID();
     const contentType = input.contentType as string;
     const url = await getSignedUrl(client, new PutObjectCommand({
-      Bucket: bucket, Key: key, ContentType: contentType, ContentLength: input.size,
+      Bucket: bucket, Key: key, ContentType: contentType, ContentLength: input.size as number,
     }), { expiresIn: 300 });
     return { uploadUrl: url, key, contentType, maxBytes: MAX_BYTES };
+    });
   }
 
   @Post('confirm')

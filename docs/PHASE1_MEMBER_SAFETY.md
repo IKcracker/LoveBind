@@ -73,3 +73,5 @@ upstream packages adopt patched dependencies.
 The five-tab navigation still requires the requested on-device design review.
 Appeals, account deletion and recovery flows belong to the remaining account
 controls backlog; they are not included in this Phase 1 increment.
+
+Account deletion is now implemented in a later increment; see [ACCOUNT_DELETION.md](./ACCOUNT_DELETION.md) for behavior and production approval requirements. Appeals and recovery remain outside this increment.

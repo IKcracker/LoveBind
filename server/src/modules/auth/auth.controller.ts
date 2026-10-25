@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { AuthGuard, AuthenticatedRequest } from './auth.guard';
+import { AllowSuspended, AuthGuard, AuthenticatedRequest } from './auth.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -17,12 +17,14 @@ export class AuthController {
   }
 
   @UseGuards(AuthGuard)
+  @AllowSuspended()
   @Get('me')
   me(@Req() request: AuthenticatedRequest) {
     return this.auth.me(request.authUserId);
   }
 
   @UseGuards(AuthGuard)
+  @AllowSuspended()
   @Post('logout')
   logout(@Req() request: AuthenticatedRequest) {
     return this.auth.logout(request.authToken);

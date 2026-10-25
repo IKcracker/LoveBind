@@ -1,4 +1,4 @@
-import { BadGatewayException, BadRequestException, Controller, Get, Post, Req, Body, ServiceUnavailableException, UseGuards } from '@nestjs/common';
+import { UnauthorizedException, BadGatewayException, BadRequestException, Controller, Get, Post, Req, Body, ServiceUnavailableException, UseGuards } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthGuard, AuthenticatedRequest } from '../auth/auth.guard';
 import { evaluateDiditAgeEvidence, reconcileAccount } from '../moderation/activation';
@@ -33,13 +33,18 @@ export class VerificationController {
     const apiKey = process.env.DIDIT_API_KEY;
     const workflowId = process.env.DIDIT_WORKFLOW_ID;
     if (!apiKey || !workflowId) throw new ServiceUnavailableException('Identity verification is not configured yet');
-    const user = await this.prisma.user.findUniqueOrThrow({
+    let createdSessionId: string | undefined;
+    try {
+      return await this.prisma.$transaction(async tx => {
+        const users = await tx.$queryRaw<{ status: string }[]>`SELECT "status" FROM "User" WHERE "id" = ${request.authUserId} FOR SHARE`;
+        if (!users[0] || ['DELETED', 'SUSPENDED'].includes(users[0].status)) throw new UnauthorizedException('Account unavailable');
+    const user = await tx.user.findUniqueOrThrow({
       where: { id: request.authUserId }, select: { profile: { select: { city: true, bio: true, relationshipGoal: true } } },
     });
     if (!user.profile?.city || !user.profile?.bio || !user.profile?.relationshipGoal) {
       throw new BadRequestException('Complete your LoveBind profile first');
     }
-    const existing = await this.prisma.identityVerification.findUnique({ where: { userId: request.authUserId } });
+    const existing = await tx.identityVerification.findUnique({ where: { userId: request.authUserId } });
     if (existing && !['Declined', 'Expired', 'Abandoned', 'Not Started'].includes(existing.status)) {
       throw new BadRequestException('A verification session is already in progress or awaiting review');
     }
@@ -53,13 +58,23 @@ export class VerificationController {
     const result = await response.json() as SessionResponse;
     const url = result.url ?? result.session_url;
     if (!result.session_id || !url || !/^https:\/\//.test(url)) throw new BadGatewayException('Invalid verification session response');
-    await this.prisma.identityVerification.upsert({
+    createdSessionId = result.session_id;
+    await tx.identityVerification.upsert({
       where: { userId: request.authUserId },
       create: { userId: request.authUserId, providerSessionId: result.session_id, consentAt: new Date() },
       update: { providerSessionId: result.session_id, status: 'Not Started', consentAt: new Date(), lastCheckedAt: null,
         ageVerifiedAt: null, ageEvidenceStatus: 'PENDING' },
     });
+    if (existing) await tx.deletionTask.create({ data: { userId: request.authUserId, kind: 'DIDIT_SESSION', target: existing.providerSessionId, notBefore: new Date() } });
     return { url, status: 'Not Started' };
+      }, { timeout: 20000 });
+    } catch (error) {
+      // Compensate a provider creation if the DB transaction failed or deletion won.
+      if (createdSessionId) await this.prisma.deletionTask.create({ data: {
+        userId: request.authUserId, kind: 'DIDIT_SESSION', target: createdSessionId, notBefore: new Date(),
+      } });
+      throw error;
+    }
   }
 
   @Post('refresh')

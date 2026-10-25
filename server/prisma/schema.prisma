@@ -61,6 +61,7 @@ model User {
   adminApprovalStatus String @default("PENDING")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  deletion    AccountDeletion?
   profile     Profile?
   preferences PartnerPreference?
   sentLikes   Like[] @relation("SentLikes")
@@ -413,4 +414,40 @@ model AgeEvidenceRecheck {
 
   @@index([memberId, checkedAt])
   @@index([moderatorId, checkedAt])
+}
+
+// No email, name, password, DOB, messages or quiz answers in this receipt.
+model AccountDeletion {
+  userId String @id
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  requestedAt DateTime @default(now())
+  retentionUntil DateTime
+  financialUntil DateTime
+  policyVersion String
+  photoReviewEvidence Json
+  safetyPurgedAt DateTime?
+  financialPurgedAt DateTime?
+  // Only an authorised operator can set a documented, time-bounded hold.
+  holdUntil DateTime?
+  holdReference String?
+  @@index([retentionUntil])
+}
+
+// Durable outbox. A provider identifier is erased after successful cleanup.
+model DeletionTask {
+  id String @id @default(cuid())
+  userId String
+  kind String
+  target String?
+  notBefore DateTime
+  completedAt DateTime?
+  attempts Int @default(0)
+  lastError String?
+  @@index([completedAt, notBefore])
+}
+
+model DeletionAttempt {
+  userId String @id
+  windowStart DateTime @default(now())
+  count Int @default(0)
 }

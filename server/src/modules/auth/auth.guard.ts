@@ -1,7 +1,9 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import { SetMetadata, CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import { Request } from 'express';
 import { PrismaService } from '../../prisma/prisma.service';
 import { tokenDigest } from './auth.service';
+
+export const AllowSuspended = () => SetMetadata('allowSuspended', true);
 
 export type AuthenticatedRequest = Request & { authUserId: string; authToken: string };
 @Injectable()
@@ -19,7 +21,7 @@ export class AuthGuard implements CanActivate {
       include: { user: { select: { id: true, status: true } } },
     });
     if (!session || session.revokedAt || session.expiresAt <= new Date() ||
-        session.user.status === 'SUSPENDED' || session.user.status === 'DELETED') {
+        (session.user.status === 'SUSPENDED' && !Reflect.getMetadata('allowSuspended', context.getHandler())) || session.user.status === 'DELETED') {
       throw new UnauthorizedException('Session expired or account unavailable');
     }
     request.authUserId = session.user.id;
