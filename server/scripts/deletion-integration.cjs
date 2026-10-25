@@ -91,6 +91,24 @@ module.exports = async function deletionIntegration(call, adminToken) {
     assert.equal(await db.purchase.count({ where: { userId: a.id } }), 0);
     assert.deepEqual((await db.accountDeletion.findUnique({ where: { userId: a.id } })).photoReviewEvidence, []);
 
+    // Force a mid-transaction failure on a disposable fixture; nothing may be partly deleted.
+    const rollback = await member();
+    await db.$executeRawUnsafe(`CREATE OR REPLACE FUNCTION ci_reject_deletion() RETURNS trigger AS $$
+      BEGIN RAISE EXCEPTION 'synthetic deletion failure'; END; $$ LANGUAGE plpgsql`);
+    await db.$executeRawUnsafe(`CREATE TRIGGER ci_reject_deletion BEFORE DELETE ON "Profile"
+      FOR EACH ROW EXECUTE FUNCTION ci_reject_deletion()`);
+    try {
+      assert.equal((await remove(rollback)).status, 500);
+      assert.equal((await call('/auth/me', 'GET', undefined, rollback.token)).status, 200);
+      assert.ok(await db.profile.findUnique({ where: { userId: rollback.id } }));
+      assert.equal(await db.accountDeletion.count({ where: { userId: rollback.id } }), 0);
+      assert.equal(await db.deletionTask.count({ where: { userId: rollback.id } }), 0);
+    } finally {
+      await db.$executeRawUnsafe('DROP TRIGGER ci_reject_deletion ON "Profile"');
+      await db.$executeRawUnsafe('DROP FUNCTION ci_reject_deletion()');
+    }
+    assert.equal((await remove(rollback)).status, 201);
+
     const limited = await member();
     for (let i = 0; i < 5; i++) assert.equal((await remove(limited, { password: 'wrong', confirmation: 'DELETE' })).status, 401);
     assert.equal((await remove(limited)).status, 429);

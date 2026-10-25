@@ -38,35 +38,35 @@ export class VerificationController {
       return await this.prisma.$transaction(async tx => {
         const users = await tx.$queryRaw<{ status: string }[]>`SELECT "status" FROM "User" WHERE "id" = ${request.authUserId} FOR SHARE`;
         if (!users[0] || ['DELETED', 'SUSPENDED'].includes(users[0].status)) throw new UnauthorizedException('Account unavailable');
-    const user = await tx.user.findUniqueOrThrow({
-      where: { id: request.authUserId }, select: { profile: { select: { city: true, bio: true, relationshipGoal: true } } },
-    });
-    if (!user.profile?.city || !user.profile?.bio || !user.profile?.relationshipGoal) {
-      throw new BadRequestException('Complete your LoveBind profile first');
-    }
-    const existing = await tx.identityVerification.findUnique({ where: { userId: request.authUserId } });
-    if (existing && !['Declined', 'Expired', 'Abandoned', 'Not Started'].includes(existing.status)) {
-      throw new BadRequestException('A verification session is already in progress or awaiting review');
-    }
-    const response = await fetch(BASE + '/session/', {
-      method: 'POST',
-      headers: { 'x-api-key': apiKey, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ workflow_id: workflowId, vendor_data: request.authUserId }),
-      signal: AbortSignal.timeout(15000),
-    }).catch(() => { throw new BadGatewayException('Verification provider unavailable'); });
-    if (!response.ok) throw new BadGatewayException('Unable to start identity verification');
-    const result = await response.json() as SessionResponse;
-    const url = result.url ?? result.session_url;
-    if (!result.session_id || !url || !/^https:\/\//.test(url)) throw new BadGatewayException('Invalid verification session response');
-    createdSessionId = result.session_id;
-    await tx.identityVerification.upsert({
-      where: { userId: request.authUserId },
-      create: { userId: request.authUserId, providerSessionId: result.session_id, consentAt: new Date() },
-      update: { providerSessionId: result.session_id, status: 'Not Started', consentAt: new Date(), lastCheckedAt: null,
-        ageVerifiedAt: null, ageEvidenceStatus: 'PENDING' },
-    });
-    if (existing) await tx.deletionTask.create({ data: { userId: request.authUserId, kind: 'DIDIT_SESSION', target: existing.providerSessionId, notBefore: new Date() } });
-    return { url, status: 'Not Started' };
+        const user = await tx.user.findUniqueOrThrow({
+          where: { id: request.authUserId }, select: { profile: { select: { city: true, bio: true, relationshipGoal: true } } },
+        });
+        if (!user.profile?.city || !user.profile?.bio || !user.profile?.relationshipGoal) {
+          throw new BadRequestException('Complete your LoveBind profile first');
+        }
+        const existing = await tx.identityVerification.findUnique({ where: { userId: request.authUserId } });
+        if (existing && !['Declined', 'Expired', 'Abandoned', 'Not Started'].includes(existing.status)) {
+          throw new BadRequestException('A verification session is already in progress or awaiting review');
+        }
+        const response = await fetch(BASE + '/session/', {
+          method: 'POST',
+          headers: { 'x-api-key': apiKey, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ workflow_id: workflowId, vendor_data: request.authUserId }),
+          signal: AbortSignal.timeout(15000),
+        }).catch(() => { throw new BadGatewayException('Verification provider unavailable'); });
+        if (!response.ok) throw new BadGatewayException('Unable to start identity verification');
+        const result = await response.json() as SessionResponse;
+        createdSessionId = result.session_id;
+        const url = result.url ?? result.session_url;
+        if (!result.session_id || !url || !/^https:\/\//.test(url)) throw new BadGatewayException('Invalid verification session response');
+        await tx.identityVerification.upsert({
+          where: { userId: request.authUserId },
+          create: { userId: request.authUserId, providerSessionId: result.session_id, consentAt: new Date() },
+          update: { providerSessionId: result.session_id, status: 'Not Started', consentAt: new Date(), lastCheckedAt: null,
+            ageVerifiedAt: null, ageEvidenceStatus: 'PENDING' },
+        });
+        if (existing) await tx.deletionTask.create({ data: { userId: request.authUserId, kind: 'DIDIT_SESSION', target: existing.providerSessionId, notBefore: new Date() } });
+        return { url, status: 'Not Started' };
       }, { timeout: 20000 });
     } catch (error) {
       // Compensate a provider creation if the DB transaction failed or deletion won.

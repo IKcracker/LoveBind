@@ -84,6 +84,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const establish = useCallback(async (response: AuthResponse) => {
     const me = await fetchCurrentUser(response.accessToken);
     await saveToken(response.accessToken);
+    sessionGeneration.current++;
     setToken(response.accessToken);
     setUser(me);
   }, []);
@@ -99,16 +100,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [establish]);
 
   const signOut = useCallback(async () => {
-    sessionGeneration.current++;
+    const generation = ++sessionGeneration.current;
     setUser(null); setToken(null);
     try {
       if (token) await apiRequest('/auth/logout', 'POST', {}, token);
     } catch {
       // Revocation can fail if offline; local session is cleared regardless.
     } finally {
-      await clearToken().catch(() => undefined);
-      setUser(null);
-      setToken(null);
+      if (generation === sessionGeneration.current) {
+        await clearToken().catch(() => undefined);
+        setUser(null);
+        setToken(null);
+      }
     }
   }, [token]);
 
@@ -119,7 +122,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const current = await fetchCurrentUser(token);
       if (generation === sessionGeneration.current) setUser(current);
     } catch (error) {
-      if (error instanceof ApiError && error.status === 401) {
+      if (error instanceof ApiError && error.status === 401 && generation === sessionGeneration.current) {
+        sessionGeneration.current++;
         await clearToken().catch(() => undefined);
         setToken(null);
         setUser(null);

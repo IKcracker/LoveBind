@@ -39,13 +39,13 @@ export class PhotoController {
     return this.prisma.$transaction(async tx => {
       const users = await tx.$queryRaw<{ status: string }[]>`SELECT "status" FROM "User" WHERE "id" = ${req.authUserId} FOR SHARE`;
       if (!users[0] || ['DELETED', 'SUSPENDED'].includes(users[0].status)) throw new UnauthorizedException('Account unavailable');
-    const { client, bucket } = storage();
-    const key = 'profiles/' + req.authUserId + '/' + randomUUID();
-    const contentType = input.contentType as string;
-    const url = await getSignedUrl(client, new PutObjectCommand({
-      Bucket: bucket, Key: key, ContentType: contentType, ContentLength: input.size as number,
-    }), { expiresIn: 300 });
-    return { uploadUrl: url, key, contentType, maxBytes: MAX_BYTES };
+      const { client, bucket } = storage();
+      const key = 'profiles/' + req.authUserId + '/' + randomUUID();
+      const contentType = input.contentType as string;
+      const url = await getSignedUrl(client, new PutObjectCommand({
+        Bucket: bucket, Key: key, ContentType: contentType, ContentLength: input.size as number,
+      }), { expiresIn: 300 });
+      return { uploadUrl: url, key, contentType, maxBytes: MAX_BYTES };
     });
   }
 

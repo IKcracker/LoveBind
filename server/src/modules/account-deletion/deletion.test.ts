@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { parseDeletion, retentionPolicy } from './deletion-policy';
 import { eraseExternal } from './cleanup';
 
@@ -41,4 +43,10 @@ test('provider cleanup accepts deletion or already absent, retries other respons
     globalThis.fetch = original;
     if (key === undefined) delete process.env.DIDIT_API_KEY; else process.env.DIDIT_API_KEY = key;
   }
+});
+
+test('disposable CI and production migration install identical deletion guards', () => {
+  const guards = readFileSync(resolve('prisma/deletion-guards.sql'), 'utf8');
+  const migration = readFileSync(resolve('prisma/migrations/20261025_account_deletion/migration.sql'), 'utf8');
+  assert.ok(migration.endsWith(guards));
 });
