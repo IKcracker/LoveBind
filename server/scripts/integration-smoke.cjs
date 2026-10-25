@@ -205,6 +205,7 @@ async function smoke() {
   const again = await call('/preferences/me', 'GET', undefined, token);
   assert.equal(again.json.minAge, 23, 'preference persisted');
   await require('./phase1-integration.cjs')(call, adminToken);
+  await require('./deletion-integration.cjs')(call, adminToken);
   const login = await call('/auth/login', 'POST', { email, password: registration.password });
   assert.equal(login.status, 201, 'sign-in succeeds');
   assert.ok(login.json.accessToken);

@@ -14,6 +14,7 @@ function RootNavigator() {
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Love.paper } }}>
       <Stack.Screen name="index" />
+      <Stack.Screen name="account-deleted" />
       <Stack.Protected guard={!signedIn}>
         <Stack.Screen name="login" />
         <Stack.Screen name="register" />
@@ -24,6 +25,7 @@ function RootNavigator() {
         <Stack.Screen name="profile-photo" />
         <Stack.Screen name="verification" />
         <Stack.Screen name="edit-profile" />
+        <Stack.Screen name="delete-account" />
         <Stack.Screen name="preferences" />
         <Stack.Screen name="moderation" />
         <Stack.Screen name="member-safety" />
